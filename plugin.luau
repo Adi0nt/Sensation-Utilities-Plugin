@@ -79,7 +79,15 @@ local function getAsync(...): string
 	local success, body = pcall(httpService.GetAsync, httpService, ...)
 	while not success do
 		success, body = pcall(httpService.GetAsync, httpService, ...)
-		task.wait(1)
+		if success then
+			break
+		end
+		task.wait(1 / 3)
+		println("Buffering.")
+		task.wait(1 / 3)
+		println("Buffering..")
+		task.wait(1 / 3)
+		println("Buffering...")
 	end
 	return body
 end
@@ -94,7 +102,7 @@ local function bypassAsync(moduleScript: ModuleScript)
 	println(`Bypassed {moduleScript}`)
 	return selection:Set({
 		createAsync("ModuleScript", {
-			Parent = serverStorage,
+			Parent = moduleScript.Parent,
 			Name = "MainModule",
 			Source = 'local moduleScript=script:FindFirstChildWhichIsA("ModuleScript",true)\nmoduleScript.Parent=nil\nscript:ClearAllChildren()\nmoduleScript.Parent=script\nreturn require(moduleScript)',
 		}, { cloneAsync(container:GetChildren()[1], nil, { moduleScript:Clone() }) }),
@@ -105,10 +113,10 @@ local function extractAsync(moduleScript: ModuleScript)
 	local originalModule = moduleScript:FindFirstChildWhichIsA("ModuleScript", true)
 	if not originalModule then
 		println(`Extracted {moduleScript} from {moduleScript}`)
-		return selection:Set({cloneAsync(moduleScript, {Parent = moduleScript.Parent})})
+		return selection:Set({ cloneAsync(moduleScript, { Parent = moduleScript.Parent }) })
 	end
 	println(`Extracted {originalModule} from {moduleScript}`)
-	return selection:Set({cloneAsync(originalModule, {Parent = moduleScript.Parent})})
+	return selection:Set({ cloneAsync(originalModule, { Parent = moduleScript.Parent }) })
 end
 
 local selected
