@@ -125,9 +125,94 @@ local reGui = require(packages.ReGui)(plugin)
 local maid = maid.new()
 local instance_newindex = rawLib.instance_newindex
 
+local hue = 1
+
+local accent = {
+	Light = Color3.fromHSV(hue, 204/255, 250/255),
+	Dark = Color3.fromHSV(hue, 214/255, 188/255),
+	ExtraDark = Color3.fromHSV(hue, 213/255, 120/255),
+	White = Color3.fromRGB(240, 240, 240),
+	Gray = Color3.fromRGB(175, 175, 175),
+	Black = Color3.fromRGB(24, 24, 24),
+	Yellow = Color3.fromRGB(230, 180, 0),
+	Orange = Color3.fromRGB(230, 150, 0),
+	Green = Color3.fromRGB(130, 188, 91),
+	Red = Color3.fromRGB(255, 69, 69),
+}
+
+reGui:DefineTheme("Sensation", {
+	AnimationTweenInfo = TweenInfo.new(0.08),
+	--TextFont = Enum.Font.SourceSans,
+	TextSize = 13,
+	Text = accent.White,
+	TextDisabled = accent.Gray,
+	ErrorText = accent.Red,
+
+	FrameBg = accent.Dark,
+	FrameBgTransparency = 0.4,
+	FrameBgActive = accent.Light,
+	FrameBgTransparencyActive = 0.4,
+	FrameRounding = UDim.new(0, 2),
+
+	--// Elements
+	SliderGrab = accent.Light,
+	ButtonsBg = accent.Light,
+	CollapsingHeaderBg = accent.Light,
+	CollapsingHeaderText = accent.White,
+	CheckMark = accent.Light,
+	ResizeGrab = accent.Light,
+	HeaderBg = accent.Gray,
+	HeaderBgTransparency = 0.7,
+	HistogramBar = accent.Yellow,
+	ProgressBar = accent.Yellow,
+	RegionBg = accent.Dark,
+	RegionBgTransparency = 0.1,
+	Separator = accent.Gray,
+	SeparatorTransparency = 0.5,
+	ConsoleLineNumbers = accent.White,
+	LabelPaddingTop = UDim.new(0, 0),
+	LabelPaddingBottom = UDim.new(0, 0),
+	MenuBar = accent.ExtraDark,
+	MenuBarTransparency = 0.1,
+	PopupCanvas = accent.Black,
+
+	--// TabSelector
+	TabTextPaddingTop = UDim.new(0, 3),
+	TabTextPaddingBottom = UDim.new(0, 8),
+	TabText = accent.Gray,
+	TabBg = accent.Dark,
+	TabTextActive = accent.White,
+	TabBgActive = accent.Light,
+	TabsBarBg = Color3.fromRGB(36, 36, 36),
+	TabsBarBgTransparency = 1,
+	TabPagePadding = UDim.new(0, 8),
+
+	--// Window
+	ModalWindowDimBg = Color3.fromRGB(230, 230, 230),
+	ModalWindowDimTweenInfo = TweenInfo.new(0.2),
+
+	WindowBg = accent.Black,
+	WindowBgTransparency = 0.05,
+
+	Border = accent.Gray,
+	BorderTransparency = 0.8,
+	BorderTransparencyActive = 0.5,
+
+	Title = accent.White,
+	TitleAlign = Enum.TextXAlignment.Left,
+	TitleBarBg = accent.Black,
+	TitleBarTransparency = 0,
+	TitleActive = accent.White,
+	TitleBarBgActive = accent.Dark,
+	TitleBarTransparencyActive = 0.05,
+	TitleBarBgCollapsed = Color3.fromRGB(0, 0, 0),
+	TitleBarTransparencyCollapsed = 0.6,
+})
+
 local window = reGui
 	:TabsWindow({
 		Title = "Sensation Utilities",
+		Theme = "Sensation",
 		Size = UDim2.new(0, 400, 0, 300),
 		NoScroll = true,
 		Visible = false,
