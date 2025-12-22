@@ -11,6 +11,14 @@ local packages = {}
 local methods = {}
 local method = "Adiont's Method"
 
+local cryo
+local rawLib
+local maid
+local task
+local reGui
+
+local instance_newindex
+
 local function println(output: string)
 	print("[Sensation Utilities]: " .. output)
 end
@@ -71,7 +79,7 @@ local function getAsync(...): string
 	local success, body = pcall(httpService.GetAsync, httpService, ...)
 	while not success do
 		success, body = pcall(httpService.GetAsync, httpService, ...)
-		task.Wait(1)
+		task.wait(1)
 	end
 	return body
 end
@@ -117,14 +125,13 @@ for index, value in _methods do
 end
 println("Loaded methods.")
 
-local cryo = require(packages.Cryo)
-local rawLib = require(packages.RawLib)
-local maid = require(packages.Maid)
-local task = require(packages.Task)
-local reGui = require(packages.ReGui)(plugin)
+cryo = require(packages.Cryo)
+rawLib = require(packages.RawLib)
+maid = require(packages.Maid)
+task = require(packages.Task)
+reGui = require(packages.ReGui)(plugin)
 
-local maid = maid.new()
-local instance_newindex = rawLib.instance_newindex
+instance_newindex = rawLib.instance_newindex
 
 local hue = 208/360
 
@@ -213,7 +220,6 @@ reGui:DefineTheme("Sensation", {
 local window = reGui
 	:TabsWindow({
 		Title = "Sensation Utilities",
-		Theme = "Sensation",
 		Size = UDim2.new(0, 400, 0, 300),
 		NoScroll = true,
 		Visible = false,
