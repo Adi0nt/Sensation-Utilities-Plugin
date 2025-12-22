@@ -5,6 +5,8 @@ local serverStorage = game:GetService("ServerStorage")
 local serializationService = game:GetService("SerializationService")
 local httpService = game:GetService("HttpService")
 
+local toolbar = plugin:CreateToolbar("Sensation")
+
 local packages = {}
 local methods = {}
 local method = "Adiont's Method"
@@ -90,7 +92,6 @@ local function bypassAsync(moduleScript: ModuleScript)
 	})
 end
 
-local toolbar = plugin:CreateToolbar("Sensation")
 local selected
 
 local button =
