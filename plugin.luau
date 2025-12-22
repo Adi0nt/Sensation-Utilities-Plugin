@@ -126,7 +126,7 @@ local reGui = require(packages.ReGui)(plugin)
 local maid = maid.new()
 local instance_newindex = rawLib.instance_newindex
 
-local hue = 1
+local hue = 350/360
 
 local accent = {
 	Light = Color3.fromHSV(hue, 204/255, 250/255),
