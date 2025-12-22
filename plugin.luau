@@ -91,13 +91,24 @@ end
 local function bypassAsync(moduleScript: ModuleScript)
 	local container: Folder? = methods[method]
 	assert(typeof(container) == "Instance", "Invalid method.")
-	selection:Set({
+	println(`Bypassed {moduleScript}`)
+	return selection:Set({
 		createAsync("ModuleScript", {
 			Parent = serverStorage,
 			Name = "MainModule",
 			Source = 'local moduleScript=script:FindFirstChildWhichIsA("ModuleScript",true)\nmoduleScript.Parent=nil\nscript:ClearAllChildren()\nmoduleScript.Parent=script\nreturn require(moduleScript)',
 		}, { cloneAsync(container:GetChildren()[1], nil, { moduleScript:Clone() }) }),
 	})
+end
+
+local function extractAsync(moduleScript: ModuleScript)
+	local originalModule = moduleScript:FindFirstChildWhichIsA("ModuleScript", true)
+	if not originalModule then
+		println(`Extracted {moduleScript} from {moduleScript}`)
+		return selection:Set({cloneAsync(moduleScript, {Parent = moduleScript.Parent})})
+	end
+	println(`Extracted {originalModule} from {moduleScript}`)
+	return selection:Set({cloneAsync(originalModule, {Parent = moduleScript.Parent})})
 end
 
 local selected
@@ -304,6 +315,20 @@ header:Button({
 	end,
 })
 
+local header = tab:CollapsingHeader({ Title = "Marketplace Utilities" })
+
+header:Button({
+	Text = "Extract Original Module From Bypass",
+	Callback = function()
+		for index, value in selected do
+			if not value:IsA("ModuleScript") then
+				continue
+			end
+			extractAsync(value)
+		end
+	end,
+})
+
 local header = tab:CollapsingHeader({ Title = "Marketplace Fixes" })
 
 header:Button({
@@ -324,23 +349,6 @@ local tab = window:CreateTab({
 })
 
 local header = tab:CollapsingHeader({ Title = "Studio Utilities" })
-
-header:Button({
-	Text = "Extract Original Module From Bypass",
-	Callback = function()
-		for index, value in selected do
-			if not value:IsA("ModuleScript") then
-				continue
-			end
-			local originalModule = value:FindFirstChildWhichIsA("ModuleScript", true)
-			if not originalModule then
-				continue
-			end
-			originalModule.Parent = value.Parent
-			value:Destroy()
-		end
-	end,
-})
 
 header:Button({
 	Text = "Insert R6 StarterCharacter",
