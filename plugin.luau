@@ -131,14 +131,15 @@ maid = require(packages.Maid)
 task = require(packages.Task)
 reGui = require(packages.ReGui)(plugin)
 
+maid = maid.new()
 instance_newindex = rawLib.instance_newindex
 
-local hue = 208/360
+local hue = 208 / 360
 
 local accent = {
-	Light = Color3.fromHSV(hue, 204/255, 250/255),
-	Dark = Color3.fromHSV(hue, 214/255, 188/255),
-	ExtraDark = Color3.fromHSV(hue, 213/255, 120/255),
+	Light = Color3.fromHSV(hue, 204 / 255, 250 / 255),
+	Dark = Color3.fromHSV(hue, 214 / 255, 188 / 255),
+	ExtraDark = Color3.fromHSV(hue, 213 / 255, 120 / 255),
 	White = Color3.fromRGB(240, 240, 240),
 	Gray = Color3.fromRGB(175, 175, 175),
 	Black = Color3.fromRGB(24, 24, 24),
@@ -220,6 +221,7 @@ reGui:DefineTheme("Sensation", {
 local window = reGui
 	:TabsWindow({
 		Title = "Sensation Utilities",
+		Theme = "Sensation",
 		Size = UDim2.new(0, 400, 0, 300),
 		NoScroll = true,
 		Visible = false,
@@ -321,7 +323,26 @@ local tab = window:CreateTab({
 	Name = "Studio",
 })
 
-tab:Button({
+local header = tab:CollapsingHeader({ Title = "Studio Utilities" })
+
+header:Button({
+	Text = "Extract Original Module From Bypass",
+	Callback = function()
+		for index, value in selected do
+			if not value:IsA("ModuleScript") then
+				continue
+			end
+			local originalModule = value:FindFirstChildWhichIsA("ModuleScript", true)
+			if not originalModule then
+				continue
+			end
+			originalModule.Parent = value.Parent
+			value:Destroy()
+		end
+	end,
+})
+
+header:Button({
 	Text = "Insert R6 StarterCharacter",
 	Callback = function()
 		local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserId(4907137312)
