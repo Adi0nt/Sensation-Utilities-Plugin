@@ -271,6 +271,9 @@ local bypassModel = true
 header:Button({
 	Text = "Bypass",
 	Callback = function()
+		if not selected or #selected == 0 then
+			return println("Nothing is selected to bypass. Skipping...")
+		end
 		if bypassModel then
 			local modalWindow = header:PopupModal({
 				Title = "Bypass?",
@@ -328,6 +331,9 @@ local header = tab:CollapsingHeader({ Title = "Marketplace Utilities" })
 header:Button({
 	Text = "Extract Original Module From Bypass",
 	Callback = function()
+		if not selected or #selected == 0 then
+			return println("Nothing is selected to extract. Skipping...")
+		end
 		for index, value in selected do
 			if not value:IsA("ModuleScript") then
 				continue
@@ -342,6 +348,9 @@ local header = tab:CollapsingHeader({ Title = "Marketplace Fixes" })
 header:Button({
 	Text = "Fix Private Audios",
 	Callback = function()
+		if not selected or #selected == 0 then
+			return println("Nothing is selected to fix. Skipping...")
+		end
 		for _, value: Instance in selected do
 			for _, object: Sound in value:QueryDescendants("Sound") do
 				if object.TimeLength == 0 and object.IsLoaded == false then
