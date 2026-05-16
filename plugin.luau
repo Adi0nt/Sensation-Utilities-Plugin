@@ -155,7 +155,7 @@ local function insertAsync(moduleScript: ModuleScript)
 	println(`Inserted {moduleScript.Name}`)
 	
 	return selection:Set({
-		cloneAsync(moduleScript:Clone(), nil, container:GetChildren()[1])
+		cloneAsync(moduleScript:Clone(), nil, container:GetChildren())
 	})
 end
 
