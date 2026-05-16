@@ -455,7 +455,7 @@ local presetHeader = moduleTab:CollapsingHeader({ Title = "Preset" })
 
 local preset = "Advanced Module"
 
-bypassHeader:Combo({
+presetHeader:Combo({
 	Label = "Presets",
 	Selected = "Advanced Module",
 	Items = { "Advanced Module", "Basic Module" },
