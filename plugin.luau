@@ -386,6 +386,9 @@ bypassHeader:Button({
 
 local sandboxHeader = moduleTab:CollapsingHeader({ Title = "Sandbox" })
 
+const maxCapabilities = SecurityCapabilities.new(unpack(Enum.SecurityCapability:GetEnumItems()))
+const minCapabilities = SecurityCapabilities.new()
+
 sandboxHeader:Button({
 	Text = "Sandbox",
 	Callback = function()
@@ -395,13 +398,11 @@ sandboxHeader:Button({
 		end
 		
 		for _, value: Instance in selected do
-            if value.Sandboxed then
-                value.Capabilities = value.Capabilities:Remove(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
-                value.Sandboxed = true
-            end
-            for _, object: Instance in value:QueryDescendants("[Sandboxed = true]") do
-                object.Capabilities = object.Capabilities:Remove(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
-                object.Sandboxed = true
+			pcall(instance_newindex, value, "Capabilities", minCapabilities)
+			pcall(instance_newindex, value, "Sandboxed", true)
+            for _, object: Instance in value:GetDescendants() do
+                pcall(instance_newindex, object, "Capabilities", minCapabilities)
+                pcall(instance_newindex, object, "Sandboxed", true)
             end
 		end
 	end,
@@ -416,13 +417,11 @@ sandboxHeader:Button({
 		end
 		
 		for _, value: Instance in selected do
-            if value.Sandboxed then
-                value.Capabilities = value.Capabilities:Add(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
-                value.Sandboxed = false
-            end
-            for _, object: Instance in value:QueryDescendants("[Sandboxed = true]") do
-                object.Capabilities = object.Capabilities:Add(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
-                object.Sandboxed = false
+           	pcall(instance_newindex, value, "Capabilities", maxCapabilities)
+			pcall(instance_newindex, value, "Sandboxed", false)
+            for _, object: Instance in value:GetDescendants() do
+                pcall(instance_newindex, object, "Capabilities", maxCapabilities)
+                pcall(instance_newindex, object, "Sandboxed", false)
             end
 		end
 	end,
