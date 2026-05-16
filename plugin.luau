@@ -1,7 +1,7 @@
+--!strict
 local players = game:GetService("Players")
 local starterPlayer = game:GetService("StarterPlayer")
 local selection = game:GetService("Selection")
-local serverStorage = game:GetService("ServerStorage")
 local serializationService = game:GetService("SerializationService")
 local httpService = game:GetService("HttpService")
 
@@ -9,7 +9,8 @@ local toolbar = plugin:CreateToolbar("Sensation")
 
 local packages = {}
 local methods = {}
-local method = "Adiont's Method"
+local method: string = "Single Method"
+local mode: "Insert" | "Append" = "Insert"
 
 local cryo
 local rawLib
@@ -19,87 +20,126 @@ local reGui
 
 local instance_newindex
 
+const advancedModuleSource = [[const starterPlayer = game:GetService("StarterPlayer")
+const starterPack = game:GetService("StarterPack")
+const starterGui = game:GetService("StarterGui")
+const players = game:GetService("Players")
+const starterCharacterScripts = starterPlayer:QueryDescendants(">StarterCharacterScripts")[1]
+const starterPlayerScripts = starterPlayer:QueryDescendants(">StarterPlayerScripts")[1]
+
+const function getService(serviceName: string)
+    local service = nil
+    if serviceName == "StarterCharacterScripts" or serviceName == "StarterPlayerScripts" then
+        service = game:QueryDescendants(serviceName)[1]
+    else
+        service = game:QueryDescendants(">"..serviceName)[1]
+    end
+    return service
+end
+
+return function(name: string)
+    const player: Player = players:QueryDescendants(`>Player#{name}`)[1]
+    if not player then
+        return
+    end
+    for _, value in script:GetChildren() do
+        local service = getService(value.Name)
+        if typeof(service) ~= "Instance" then
+            warn("Service not found: " .. value.Name, 1)
+            continue
+        end
+        if service == starterPack then
+            service = player:FindFirstChildWhichIsA("Backpack")
+        elseif service == starterGui then
+            service = player:FindFirstChildWhichIsA("PlayerGui")
+        elseif service == starterPlayerScripts then
+            service = player:FindFirstChildWhichIsA("PlayerGui")
+        elseif service == starterCharacterScripts then
+            service = player.Character or player.CharacterAdded:Wait()
+        end
+        if not service then
+            warn("Service not found: " .. value.Name, 2)
+            continue
+        end
+        for _, instance in value:GetChildren() do
+            if not service:FindFirstChild(instance.Name) then
+                instance:Clone().Parent = service
+            end
+        end
+    end
+end]]
+
 local function println(output: string)
-	print("[Sensation Utilities]: " .. output)
+	print(`[Sensation Utilities]: {output}`)
 end
 
---[[
-Creates a new Instance with properties and children.
-]]
-local function createAsync(className: string, properties: { string: any }?, children: { Instance }?)
+local function warnln(output: string)
+	warn(`[Sensation Utilities]: {output}`)
+end
+
+local function applyPropertiesAndChildren(instance: Instance, properties: { [string]: any }?, children: { Instance }?)
+	if properties then
+		local parent = nil
+		for property, value in properties do
+			if property:lower() == "parent" then
+				parent = value
+				continue
+			end
+			pcall(instance_newindex, instance, property, value)
+		end
+		if parent then
+			pcall(instance_newindex, instance, "Parent", parent)
+		end
+	end
+	if children then
+		for _, child in children do
+			pcall(instance_newindex, child, "Parent", instance)
+		end
+	end
+	return instance
+end
+
+local function createAsync(className: string, properties: { [string]: any }?, children: { Instance }?)
 	local class = Instance.new(className)
-	if properties then
-		local parent = nil
-		for property, value in properties do
-			if property == "Parent" or property == "parent" then
-				parent = value
-				continue
-			end
-			pcall(instance_newindex, class, property, value)
-		end
-		if parent then
-			pcall(instance_newindex, class, "Parent", parent)
-		end
-	end
-	if children then
-		for _, child in children do
-			pcall(instance_newindex, child, "Parent", class)
-		end
-	end
-	return class
+	return applyPropertiesAndChildren(class, properties, children)
 end
 
---[[
-Clones a Instance with properties and children.
-]]
-local function cloneAsync(clone: Instance, properties: { string: any }?, children: { Instance }?)
+local function cloneAsync(clone: Instance, properties: { [string]: any }?, children: { Instance }?)
 	local class = clone:Clone()
-	if properties then
-		local parent = nil
-		for property, value in properties do
-			if property == "Parent" or property == "parent" then
-				parent = value
-				continue
-			end
-			pcall(instance_newindex, class, property, value)
-		end
-		if parent then
-			pcall(instance_newindex, class, "Parent", parent)
-		end
-	end
-	if children then
-		for _, child in children do
-			pcall(instance_newindex, child, "Parent", class)
-		end
-	end
-	return class
+	return applyPropertiesAndChildren(class, properties, children)
 end
 
-local function getAsync(...): string
-	local success, body = pcall(httpService.GetAsync, httpService, ...)
-	while not success do
-		success, body = pcall(httpService.GetAsync, httpService, ...)
+local function getAsync(url: string, maxRetries: number?): string?
+	local retries = maxRetries or 5
+	local attempts = 0
+	local success, body = false, nil
+	
+	repeat
+		success, body = pcall(httpService.GetAsync, httpService, url)
 		if success then
-			break
+			return body
 		end
-		task.wait(1 / 3)
-		println("Buffering.")
-		task.wait(1 / 3)
-		println("Buffering..")
-		task.wait(1 / 3)
-		println("Buffering...")
-	end
-	return body
+		
+		attempts += 1
+		if attempts <= retries then
+			println(`Buffering... (Attempt {attempts}/{retries})`)
+			task.wait(1)
+		end
+	until success or attempts > retries
+	
+	warnln(`Failed to fetch URL after {retries} attempts.`)
+	return nil
 end
 
 local function deserializeInstancesAsync(...): { Instance }
 	return select(2, pcall(serializationService.DeserializeInstancesAsync, serializationService, ...))
 end
 
-local function bypassAsync(moduleScript: ModuleScript)
-	local container: Folder? = methods[method]
+local function appendAsync(moduleScript: ModuleScript)
+	local container = methods[method] :: Folder?
 	assert(typeof(container) == "Instance", "Invalid method.")
-	println(`Bypassed {moduleScript}`)
+	println(`Appended {moduleScript.Name}`)
+	
 	return selection:Set({
 		createAsync("ModuleScript", {
 			Parent = moduleScript.Parent,
@@ -109,40 +149,55 @@ local function bypassAsync(moduleScript: ModuleScript)
 	})
 end
 
+local function insertAsync(moduleScript: ModuleScript)
+	local container = methods[method] :: Folder?
+	assert(typeof(container) == "Instance", "Invalid method.")
+	println(`Inserted {moduleScript.Name}`)
+	
+	return selection:Set({
+		cloneAsync(moduleScript:Clone(), nil, container:GetChildren()[1])
+	})
+end
+
 local function extractAsync(moduleScript: ModuleScript)
 	local originalModule = moduleScript:FindFirstChildWhichIsA("ModuleScript", true)
 	if not originalModule then
-		println(`Extracted {moduleScript} from {moduleScript}`)
+		println(`Extracted {moduleScript.Name} from itself.`)
 		return selection:Set({ cloneAsync(moduleScript, { Parent = moduleScript.Parent }) })
 	end
-	println(`Extracted {originalModule} from {moduleScript}`)
+	println(`Extracted {originalModule.Name} from {moduleScript.Name}`)
 	return selection:Set({ cloneAsync(originalModule, { Parent = moduleScript.Parent }) })
 end
 
-local selected
-
-local button =
-	toolbar:CreateButton("Sensation Utilities", "Toggles the built-in interface.", Content.fromAssetId(16517502292).Uri)
+local button = toolbar:CreateButton("Sensation Utilities", "Toggles the built-in interface.", Content.fromAssetId(16517502292).Uri)
 
 println("Loading packages...")
-local url = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/packages.rbxm"
-local response = getAsync(url)
-local responseBuffer = buffer.fromstring(response)
-local _packages = deserializeInstancesAsync(responseBuffer)
-for index, value in _packages do
-	packages[value.Name] = value
+local packageUrl = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/packages.rbxm"
+local packageResponse = getAsync(packageUrl)
+if packageResponse then
+	local responseBuffer = buffer.fromstring(packageResponse)
+	local _packages = deserializeInstancesAsync(responseBuffer)
+	for _, value in _packages do
+		packages[value.Name] = value
+	end
+	println("Loaded packages.")
+else
+	warnln("Critical Error: Packages failed to load.")
 end
-println("Loaded packages.")
 
 println("Loading methods...")
-local url = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/methods.rbxm"
-local response = getAsync(url)
-local responseBuffer = buffer.fromstring(response)
-local _methods = deserializeInstancesAsync(responseBuffer)
-for index, value in _methods do
-	methods[value.Name] = value
+local methodsUrl = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/methods.rbxm"
+local methodsResponse = getAsync(methodsUrl)
+if methodsResponse then
+	local responseBuffer = buffer.fromstring(methodsResponse)
+	local _methods = deserializeInstancesAsync(responseBuffer)
+	for _, value in _methods do
+		methods[value.Name] = value
+	end
+	println("Loaded methods.")
+else
+	warnln("Critical Error: Methods failed to load.")
 end
-println("Loaded methods.")
 
 cryo = require(packages.Cryo)
 rawLib = require(packages.RawLib)
@@ -170,7 +225,6 @@ local accent = {
 
 reGui:DefineTheme("Sensation", {
 	AnimationTweenInfo = TweenInfo.new(0.08),
-	--TextFont = Enum.Font.SourceSans,
 	TextSize = 13,
 	Text = accent.White,
 	TextDisabled = accent.Gray,
@@ -182,7 +236,6 @@ reGui:DefineTheme("Sensation", {
 	FrameBgTransparencyActive = 0.4,
 	FrameRounding = UDim.new(0, 2),
 
-	--// Elements
 	SliderGrab = accent.Light,
 	ButtonsBg = accent.Light,
 	CollapsingHeaderBg = accent.Light,
@@ -204,7 +257,6 @@ reGui:DefineTheme("Sensation", {
 	MenuBarTransparency = 0.1,
 	PopupCanvas = accent.Black,
 
-	--// TabSelector
 	TabTextPaddingTop = UDim.new(0, 3),
 	TabTextPaddingBottom = UDim.new(0, 8),
 	TabText = accent.Gray,
@@ -215,7 +267,6 @@ reGui:DefineTheme("Sensation", {
 	TabsBarBgTransparency = 1,
 	TabPagePadding = UDim.new(0, 8),
 
-	--// Window
 	ModalWindowDimBg = Color3.fromRGB(230, 230, 230),
 	ModalWindowDimTweenInfo = TweenInfo.new(0.2),
 
@@ -237,27 +288,26 @@ reGui:DefineTheme("Sensation", {
 	TitleBarTransparencyCollapsed = 0.6,
 })
 
-local window = reGui
-	:TabsWindow({
-		Title = "Sensation Utilities",
-		Theme = "Sensation",
-		Size = UDim2.new(0, 400, 0, 300),
-		NoScroll = true,
-		Visible = false,
-		NoClose = true,
-	})
-	:Center()
+local window = reGui:TabsWindow({
+	Title = "Sensation Utilities",
+	Theme = "Sensation",
+	Size = UDim2.new(0, 400, 0, 300),
+	NoScroll = true,
+	Visible = false,
+	NoClose = true,
+}):Center()
+
 window:SetVisible(false)
 
-local tab = window:CreateTab({
-	Name = "Marketplace",
+local moduleTab = window:CreateTab({
+	Name = "Module",
 })
 
-local header = tab:CollapsingHeader({ Title = "Marketplace Bypasses" })
+local utilsHeader = moduleTab:CollapsingHeader({ Title = "Utilities" })
 
-header:Combo({
+utilsHeader:Combo({
 	Label = "Bypass method",
-	Selected = "Adiont's Method",
+	Selected = "Single Method",
 	GetItems = function()
 		return methods
 	end,
@@ -266,122 +316,201 @@ header:Combo({
 	end,
 })
 
-local bypassModel = true
+utilsHeader:Combo({
+	Label = "Bypass mode",
+	Selected = "Insert",
+	Items = { "Insert", "Append" },
+	Callback = function(self, item: string)
+		if item == "Insert" or item == "Append" then
+			mode = item
+		end
+	end,
+})
 
-header:Button({
+utilsHeader:Button({
 	Text = "Bypass",
 	Callback = function()
-		if not selected or #selected == 0 then
+		local selected = selection:Get()
+		if #selected == 0 then
 			return println("Nothing is selected to bypass. Skipping...")
 		end
-		if bypassModel then
-			local modalWindow = header:PopupModal({
-				Title = "Bypass?",
-			}) --> Canvas
-			local names = cryo.List.map(selected, function(value, key: number)
-				return value.Name, key
-			end)
-			modalWindow:Label({
-				Text = `Are you sure you want to bypass \{{table.concat(names, ", ")}\}?\nThis operation will cause some lag!`,
-				TextWrapped = true,
-			})
-			modalWindow:Separator()
-			local checkbox = modalWindow:Checkbox({
-				Value = false,
-				Label = "Don't ask me next time",
-			})
 
-			local Row = modalWindow:Row({
-				Expanded = true,
-			}) --> Canvas
-			Row:Button({
-				Text = "Okay",
-				Callback = function()
-					modalWindow:ClosePopup()
-					if checkbox.Value then
-						bypassModel = false
-					end
-					for index, value in selected do
-						if not value:IsA("ModuleScript") then
-							continue
-						end
-						bypassAsync(value)
-					end
-				end,
-			})
-			Row:Button({
-				Text = "Cancel",
-				Callback = function()
-					modalWindow:ClosePopup()
-				end,
-			})
-		else
-			for index, value in selected do
-				if not value:IsA("ModuleScript") then
-					continue
-				end
-				bypassAsync(value)
+        if mode == "Insert" then
+            for _, value in selected do
+                if value:IsA("ModuleScript") then
+                    insertAsync(value)
+                end
+            end
+        elseif mode == "Append" then
+            for _, value in selected do
+			    if value:IsA("ModuleScript") then
+			    	appendAsync(value)
+			    end
+		    end
+        end
+	end,
+})
+
+utilsHeader:Button({
+	Text = "Unbypass",
+	Callback = function()
+		local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to unbypass. Skipping...")
+		end
+		
+		for _, value in selected do
+			if value:IsA("ModuleScript") then
+				extractAsync(value)
 			end
 		end
 	end,
 })
 
-local header = tab:CollapsingHeader({ Title = "Marketplace Utilities" })
-
-header:Button({
-	Text = "Extract Original Module From Bypass",
+utilsHeader:Button({
+	Text = "Sandbox",
 	Callback = function()
-		if not selected or #selected == 0 then
-			return println("Nothing is selected to extract. Skipping...")
+		local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to sandbox. Skipping...")
 		end
-		for index, value in selected do
-			if not value:IsA("ModuleScript") then
-				continue
-			end
-			extractAsync(value)
-		end
-	end,
-})
-
-local header = tab:CollapsingHeader({ Title = "Marketplace Fixes" })
-
-header:Button({
-	Text = "Fix Private Audios",
-	Callback = function()
-		if not selected or #selected == 0 then
-			return println("Nothing is selected to fix. Skipping...")
-		end
+		
 		for _, value: Instance in selected do
-			for _, object: Sound in value:QueryDescendants("Sound") do
-				if object.TimeLength == 0 and object.IsLoaded == false then
-					object.SoundId = ""
-				end
+            if value.Sandboxed then
+                value.Capabilities = value.Capabilities:Remove(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
+                value.Sandboxed = true
+            end
+            for _, object: Instance in value:QueryDescendants("[Sandboxed = true]") do
+                object.Capabilities = object.Capabilities:Remove(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
+                object.Sandboxed = true
+            end
+		end
+	end,
+})
+
+utilsHeader:Button({
+	Text = "Unsandbox",
+	Callback = function()
+		local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to unsandbox. Skipping...")
+		end
+		
+		for _, value: Instance in selected do
+            if value.Sandboxed then
+                value.Capabilities = value.Capabilities:Add(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
+                value.Sandboxed = false
+            end
+            for _, object: Instance in value:QueryDescendants("[Sandboxed = true]") do
+                object.Capabilities = object.Capabilities:Add(Enum.SecurityCapability.CapabilityControl, Enum.SecurityCapability.LoadOwnedAsset, Enum.SecurityCapability.LoadString, Enum.SecurityCapability.LoadUnownedAsset)
+                object.Sandboxed = false
+            end
+		end
+	end,
+})
+
+utilsHeader:Button({
+	Text = "Remove Private AssetIds",
+	Callback = function()
+		local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to remove. Skipping...")
+		end
+		
+		for _, value: Instance in selected do
+            if value:IsA("Sound") then
+                if value.TimeLength == 0 and value.IsLoaded == false then
+                    value.SoundId = ""
+                end
+            end
+			for _, object: Sound in value:QueryDescendants("Sound[TimeLength = 0][IsLoaded = false]") do
+				object.SoundId = ""
 			end
 		end
 	end,
 })
 
-local tab = window:CreateTab({
+local presetsHeader = moduleTab:CollapsingHeader({ Title = "Presets" })
+
+presetsHeader:Button({
+	Text = "Advanced Module",
+	Callback = function()
+		local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to insert the module into. Skipping...")
+		end
+		
+		for _, value: Instance in selected do
+            createAsync("ModuleScript", {
+                Parent = value,
+                Name = "MainModule",
+                Source = advancedModuleSource,
+            })
+		end
+	end,
+})
+
+local marketplaceTab = window:CreateTab({
+	Name = "Marketplace",
+})
+
+local assetsHeader = marketplaceTab:CollapsingHeader({ Title = "Assets" })
+
+local assetId = 1234567890
+
+assetsHeader:InputInt({
+    Label = "AssetId",
+    Value = 1234567890,
+    Callback = function(self, int: number)
+       assetId = int
+    end,
+})
+
+assetsHeader:Button({
+    Text = "Insert",
+    Callback = function()
+        local selected = selection:Get()
+		if #selected == 0 then
+			return println("Nothing is selected to insert the asset into. Skipping...")
+		end
+		
+		for _, value: Instance in selected do
+            for _, object in game:GetObjects(Content.fromAssetId(assetId).Uri) do
+                object.Parent = value
+            end
+		end
+    end,
+})
+
+local studioTab = window:CreateTab({
 	Name = "Studio",
 })
 
-local header = tab:CollapsingHeader({ Title = "Studio Utilities" })
+local studioHeader = studioTab:CollapsingHeader({ Title = "Utilities" })
 
-header:Button({
-	Text = "Insert R6 StarterCharacter",
+studioHeader:Button({
+	Text = "R6 StarterCharacter",
 	Callback = function()
-		local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserId(4907137312)
+		local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
 			or Instance.new("HumanoidDescription")
-		local model: Model = players:CreateHumanoidModelFromDescription(humanoidDescription, Enum.HumanoidRigType.R6)
+		local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R6)
 		model:PivotTo(CFrame.new(workspace.InsertPoint))
 		model.Name = "StarterCharacter"
 		model.Parent = starterPlayer
 	end,
 })
 
-maid:Add(selection.SelectionChanged:Connect(function()
-	selected = selection:Get()
-end))
+studioHeader:Button({
+	Text = "R15 StarterCharacter",
+	Callback = function()
+		local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
+			or Instance.new("HumanoidDescription")
+		local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R15)
+		model:PivotTo(CFrame.new(workspace.InsertPoint))
+		model.Name = "StarterCharacter"
+		model.Parent = starterPlayer
+	end,
+})
 
 maid:Add(button.Click:Connect(function()
 	window:ToggleVisibility()
