@@ -386,7 +386,6 @@ bypassHeader:Button({
 
 local sandboxHeader = moduleTab:CollapsingHeader({ Title = "Sandbox" })
 
-const maxCapabilities = SecurityCapabilities.new(unpack(Enum.SecurityCapability:GetEnumItems()))
 const minCapabilities = SecurityCapabilities.new()
 
 sandboxHeader:Button({
@@ -417,10 +416,14 @@ sandboxHeader:Button({
 		end
 		
 		for _, value: Instance in selected do
-           	pcall(instance_newindex, value, "Capabilities", maxCapabilities)
+			for index, securityCapability in Enum.SecurityCapability:GetEnumItems() do
+				pcall(instance_newindex, value, "Capabilities", value.Capabilities:Add(securityCapability))
+			end
 			pcall(instance_newindex, value, "Sandboxed", false)
             for _, object: Instance in value:GetDescendants() do
-                pcall(instance_newindex, object, "Capabilities", maxCapabilities)
+                for index, securityCapability in Enum.SecurityCapability:GetEnumItems() do
+					pcall(instance_newindex, object, "Capabilities", value.Capabilities:Add(securityCapability))
+				end
                 pcall(instance_newindex, object, "Sandboxed", false)
             end
 		end
