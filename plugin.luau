@@ -20,6 +20,21 @@ local reGui
 
 local instance_newindex
 
+const basicModuleSource = [[return function(...)
+	const args = table.pack(...)
+	const player: Player? = game:QueryDescendants(`>Players>Player#{args[1]}`)[1]
+	if not player then
+		return
+	end
+	const playerGui: PlayerGui? = player:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then
+		return
+	end
+	for index: number, value: Instance in script:GetChildren() do
+		value:Clone().Parent = playerGui
+	end
+end]]
+
 const advancedModuleSource = [[const starterPlayer = game:GetService("StarterPlayer")
 const starterPack = game:GetService("StarterPack")
 const starterGui = game:GetService("StarterGui")
@@ -155,7 +170,9 @@ local function insertAsync(moduleScript: ModuleScript)
 	println(`Inserted {moduleScript.Name}`)
 	
 	return selection:Set({
-		cloneAsync(moduleScript:Clone(), nil, container:GetChildren())
+		cloneAsync(moduleScript:Clone(), {
+			Parent = moduleScript.Parent
+		}, container:GetChildren())
 	})
 end
 
@@ -303,9 +320,9 @@ local moduleTab = window:CreateTab({
 	Name = "Module",
 })
 
-local utilsHeader = moduleTab:CollapsingHeader({ Title = "Utilities" })
+local bypassHeader = moduleTab:CollapsingHeader({ Title = "Bypass" })
 
-utilsHeader:Combo({
+bypassHeader:Combo({
 	Label = "Bypass method",
 	Selected = "Single Method",
 	GetItems = function()
@@ -316,7 +333,7 @@ utilsHeader:Combo({
 	end,
 })
 
-utilsHeader:Combo({
+bypassHeader:Combo({
 	Label = "Bypass mode",
 	Selected = "Insert",
 	Items = { "Insert", "Append" },
@@ -327,7 +344,7 @@ utilsHeader:Combo({
 	end,
 })
 
-utilsHeader:Button({
+bypassHeader:Button({
 	Text = "Bypass",
 	Callback = function()
 		local selected = selection:Get()
@@ -351,7 +368,7 @@ utilsHeader:Button({
 	end,
 })
 
-utilsHeader:Button({
+bypassHeader:Button({
 	Text = "Unbypass",
 	Callback = function()
 		local selected = selection:Get()
@@ -367,7 +384,9 @@ utilsHeader:Button({
 	end,
 })
 
-utilsHeader:Button({
+local sandboxHeader = moduleTab:CollapsingHeader({ Title = "Sandbox" })
+
+sandboxHeader:Button({
 	Text = "Sandbox",
 	Callback = function()
 		local selected = selection:Get()
@@ -388,7 +407,7 @@ utilsHeader:Button({
 	end,
 })
 
-utilsHeader:Button({
+sandboxHeader:Button({
 	Text = "Unsandbox",
 	Callback = function()
 		local selected = selection:Get()
@@ -409,7 +428,9 @@ utilsHeader:Button({
 	end,
 })
 
-utilsHeader:Button({
+local contentHeader = moduleTab:CollapsingHeader({ Title = "Content" })
+
+contentHeader:Button({
 	Text = "Remove Private AssetIds",
 	Callback = function()
 		local selected = selection:Get()
@@ -430,21 +451,34 @@ utilsHeader:Button({
 	end,
 })
 
-local presetsHeader = moduleTab:CollapsingHeader({ Title = "Presets" })
+local presetHeader = moduleTab:CollapsingHeader({ Title = "Preset" })
 
-presetsHeader:Button({
-	Text = "Advanced Module",
+local preset = "Advanced Module"
+
+bypassHeader:Combo({
+	Label = "Presets",
+	Selected = "Advanced Module",
+	Items = { "Advanced Module", "Basic Module" },
+	Callback = function(self, item: string)
+		preset = item
+	end,
+})
+
+presetHeader:Button({
+	Text = "Insert Preset",
 	Callback = function()
 		local selected = selection:Get()
 		if #selected == 0 then
-			return println("Nothing is selected to insert the module into. Skipping...")
+			return println("Nothing is selected to insert the preset into. Skipping...")
 		end
+
+		local source = if preset == "Advanced Module" then advancedModuleSource elseif preset == "Basic Module" then basicModuleSource else "-- Invalid Preset"
 		
 		for _, value: Instance in selected do
             createAsync("ModuleScript", {
                 Parent = value,
                 Name = "MainModule",
-                Source = advancedModuleSource,
+                Source = source,
             })
 		end
 	end,
