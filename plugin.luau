@@ -160,7 +160,9 @@ local function appendAsync(moduleScript: ModuleScript)
 			Parent = moduleScript.Parent,
 			Name = "MainModule",
 			Source = 'local moduleScript=script:FindFirstChildWhichIsA("ModuleScript",true)\nmoduleScript.Parent=nil\nscript:ClearAllChildren()\nmoduleScript.Parent=script\nreturn require(moduleScript)',
-		}, { cloneAsync(container:GetChildren()[1], nil, { moduleScript:Clone() }) }),
+		}, { 
+			cloneAsync(container:GetChildren()[1], nil, { moduleScript:Clone() }) 
+		}),
 	})
 end
 
@@ -168,11 +170,16 @@ local function insertAsync(moduleScript: ModuleScript)
 	local container = methods[method] :: Folder?
 	assert(typeof(container) == "Instance", "Invalid method.")
 	println(`Inserted {moduleScript.Name}`)
+
+	local children = container:GetChildren()
+	for index, child in children do
+		children[index] = child:Clone()
+	end
 	
 	return selection:Set({
 		cloneAsync(moduleScript:Clone(), {
 			Parent = moduleScript.Parent
-		}, container:GetChildren())
+		}, children)
 	})
 end
 
