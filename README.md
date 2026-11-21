@@ -15,6 +15,8 @@ A comprehensive Roblox Studio utility plugin featuring module bypass tools, sand
 - **Marketplace Utilities:**
   - **Asset Inserter:** Load and parent any Roblox asset directly into selected instances by **Asset ID** and **Version**.
   - **Insert Latest:** Instantly fetch and insert the latest available version of an asset into your selection with safe multi-selection cloning.
+  - **Upload to Roblox:** Trigger the native Studio publishing prompt for your current selection to save models and assets to your inventory or groups.
+  - **Save to File (.rbxm):** Prompt a local file save to export the current selection as a model file.
 
 - **Studio Utilities:**
   - **StarterCharacter Spawners:** One-click spawn for standard R6 and R15 `StarterCharacter` models placed in `StarterPlayer`.

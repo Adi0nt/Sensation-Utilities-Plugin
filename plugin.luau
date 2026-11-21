@@ -287,19 +287,36 @@ local accentLight = Color3.fromHSV(hue, 204 / 255, 250 / 255)
 local accentDark = Color3.fromHSV(hue, 214 / 255, 188 / 255)
 
 Iris.UpdateGlobalConfig({
+	ItemSpacing = Vector2.new(8, 6),
+	ItemInnerSpacing = Vector2.new(6, 4),
+	FramePadding = Vector2.new(6, 4),
+
+	TitleBgColor = Color3.fromRGB(18, 22, 28),
 	TitleBgActiveColor = accentDark,
-	FrameBgColor = accentDark,
-	FrameBgActiveColor = accentLight,
-	ButtonColor = accentLight,
-	ButtonHoveredColor = accentLight,
-	ButtonActiveColor = accentDark,
-	HeaderColor = accentLight,
-	HeaderHoveredColor = accentLight,
+	WindowBgColor = Color3.fromRGB(22, 25, 32),
+	WindowBgTransparency = 0.02,
+
+	FrameBgColor = Color3.fromRGB(30, 36, 46),
+	FrameBgHoveredColor = Color3.fromRGB(38, 48, 62),
+	FrameBgActiveColor = accentDark,
+
+	ButtonColor = Color3.fromRGB(42, 68, 102),
+	ButtonHoveredColor = Color3.fromRGB(56, 92, 138),
+	ButtonActiveColor = accentLight,
+
+	HeaderColor = Color3.fromRGB(35, 45, 60),
+	HeaderHoveredColor = Color3.fromRGB(48, 64, 86),
 	HeaderActiveColor = accentDark,
-	TabActiveColor = accentLight,
+
+	TabColor = Color3.fromRGB(26, 33, 44),
+	TabHoveredColor = Color3.fromRGB(42, 58, 80),
+	TabActiveColor = Color3.fromRGB(46, 76, 116),
+
+	SeparatorColor = Color3.fromRGB(55, 65, 80),
+	BorderColor = Color3.fromRGB(60, 72, 90),
 })
 
-local windowSize = Iris.State(Vector2.new(420, 320))
+local windowSize = Iris.State(Vector2.new(460, 420))
 local isWindowVisible = Iris.State(false)
 
 methodState = Iris.State("")
@@ -320,6 +337,22 @@ Iris:Connect(function()
 
 	Iris.Window({ "Sensation Utilities", false, false, false, false }, { size = windowSize, isOpened = isWindowVisible })
 	do
+		local currentSelection = selection:Get()
+		local selCount = #currentSelection
+		Iris.SameLine()
+		do
+			if selCount == 0 then
+				Iris.TextDisabled({ "Selection: None (select objects in Explorer)" })
+			elseif selCount == 1 then
+				Iris.Text({ `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]` })
+			else
+				Iris.Text({ `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)` })
+			end
+		end
+		Iris.End()
+
+		Iris.Separator()
+
 		Iris.TabBar()
 		do
 			Iris.Tab({ "Module" })
@@ -333,7 +366,7 @@ Iris:Connect(function()
 					end
 
 					if methodCount > 1 then
-						Iris.Combo({ "Bypass method" }, { index = methodState })
+						Iris.Combo({ "Method" }, { index = methodState })
 						do
 							for methodName in methods do
 								Iris.Selectable({ methodName, methodName }, { index = methodState })
@@ -346,114 +379,130 @@ Iris:Connect(function()
 						Iris.TextDisabled({ "No methods loaded" })
 					end
 
-					Iris.Combo({ "Bypass mode" }, { index = modeState })
+					Iris.Combo({ "Mode" }, { index = modeState })
 					do
 						Iris.Selectable({ "Insert", "Insert" }, { index = modeState })
 						Iris.Selectable({ "Append", "Append" }, { index = modeState })
 					end
 					Iris.End()
 
-					if Iris.Button({ "Bypass" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to bypass. Skipping...")
-						else
-							if modeState.value == "Insert" then
-								for _, value in selected do
-									if value:IsA("ModuleScript") then
-										insertAsync(value)
+					Iris.SameLine()
+					do
+						if Iris.Button({ "Bypass" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to bypass. Skipping...")
+							else
+								if modeState.value == "Insert" then
+									for _, value in selected do
+										if value:IsA("ModuleScript") then
+											insertAsync(value)
+										end
 									end
-								end
-							elseif modeState.value == "Append" then
-								for _, value in selected do
-									if value:IsA("ModuleScript") then
-										appendAsync(value)
+								elseif modeState.value == "Append" then
+									for _, value in selected do
+										if value:IsA("ModuleScript") then
+											appendAsync(value)
+										end
 									end
 								end
 							end
 						end
-					end
 
-					if Iris.Button({ "Unbypass" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to unbypass. Skipping...")
-						else
-							for _, value in selected do
-								if value:IsA("ModuleScript") then
-									extractAsync(value)
+						if Iris.Button({ "Unbypass" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to unbypass. Skipping...")
+							else
+								for _, value in selected do
+									if value:IsA("ModuleScript") then
+										extractAsync(value)
+									end
 								end
 							end
 						end
 					end
+					Iris.End()
 				end
 				Iris.End()
 
 				Iris.CollapsingHeader({ "Sandbox" })
 				do
-					if Iris.Button({ "Sandbox" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to sandbox. Skipping...")
-						else
-							for _, value: Instance in selected do
-								pcall(instance_newindex, value, "Capabilities", minCapabilities)
-								pcall(instance_newindex, value, "Sandboxed", true)
-								for _, object: Instance in value:GetDescendants() do
-									pcall(instance_newindex, object, "Capabilities", minCapabilities)
-									pcall(instance_newindex, object, "Sandboxed", true)
-								end
-							end
-						end
-					end
-
-					if Iris.Button({ "Unsandbox" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to unsandbox. Skipping...")
-						else
-							for _, value: Instance in selected do
-								for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
-									pcall(instance_newindex, value, "Capabilities", value.Capabilities:Add(securityCapability))
-								end
-								pcall(instance_newindex, value, "Sandboxed", false)
-								for _, object: Instance in value:GetDescendants() do
-									for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
-										pcall(instance_newindex, object, "Capabilities", value.Capabilities:Add(securityCapability))
+					Iris.TextDisabled({ "Toggle SecurityCapabilities and sandboxing flags" })
+					Iris.SameLine()
+					do
+						if Iris.Button({ "Sandbox" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to sandbox. Skipping...")
+							else
+								for _, value: Instance in selected do
+									pcall(instance_newindex, value, "Capabilities", minCapabilities)
+									pcall(instance_newindex, value, "Sandboxed", true)
+									for _, object: Instance in value:GetDescendants() do
+										pcall(instance_newindex, object, "Capabilities", minCapabilities)
+										pcall(instance_newindex, object, "Sandboxed", true)
 									end
-									pcall(instance_newindex, object, "Sandboxed", false)
 								end
+								println(`Sandboxed {#selected} object(s).`)
+							end
+						end
+
+						if Iris.Button({ "Unsandbox" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to unsandbox. Skipping...")
+							else
+								for _, value: Instance in selected do
+									for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
+										pcall(instance_newindex, value, "Capabilities", value.Capabilities:Add(securityCapability))
+									end
+									pcall(instance_newindex, value, "Sandboxed", false)
+									for _, object: Instance in value:GetDescendants() do
+										for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
+											pcall(instance_newindex, object, "Capabilities", value.Capabilities:Add(securityCapability))
+										end
+										pcall(instance_newindex, object, "Sandboxed", false)
+									end
+								end
+								println(`Unsandboxed {#selected} object(s).`)
 							end
 						end
 					end
+					Iris.End()
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Content" })
+				Iris.CollapsingHeader({ "Cleaners" })
 				do
+					Iris.TextDisabled({ "Clear broken or private SoundId references on unloaded sounds" })
 					if Iris.Button({ "Remove Private AssetIds" }).clicked() then
 						local selected = selection:Get()
 						if #selected == 0 then
-							println("Nothing is selected to remove. Skipping...")
+							println("Nothing is selected to clean. Skipping...")
 						else
+							local cleaned = 0
 							for _, value: Instance in selected do
 								if value:IsA("Sound") then
 									if value.TimeLength == 0 and value.IsLoaded == false then
 										value.SoundId = ""
+										cleaned += 1
 									end
 								end
 								for _, object: Sound in value:QueryDescendants("Sound[TimeLength = 0][IsLoaded = false]") do
 									object.SoundId = ""
+									cleaned += 1
 								end
 							end
+							println(`Cleaned {cleaned} sound instance(s).`)
 						end
 					end
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Preset" })
+				Iris.CollapsingHeader({ "Presets" })
 				do
-					Iris.Combo({ "Presets" }, { index = presetState })
+					Iris.Combo({ "Preset" }, { index = presetState })
 					do
 						Iris.Selectable({ "Advanced Module", "Advanced Module" }, { index = presetState })
 						Iris.Selectable({ "Basic Module", "Basic Module" }, { index = presetState })
@@ -477,6 +526,7 @@ Iris:Connect(function()
 									Source = source,
 								})
 							end
+							println(`Inserted {presetState.value} into {#selected} object(s).`)
 						end
 					end
 				end
@@ -486,51 +536,107 @@ Iris:Connect(function()
 
 			Iris.Tab({ "Marketplace" })
 			do
-				Iris.CollapsingHeader({ "Assets" })
+				Iris.CollapsingHeader({ "Insert Asset" })
 				do
-					Iris.InputNum({ "Id", 1, 0, nil, "%d" }, { number = assetIdState })
+					Iris.InputNum({ "Asset ID", 1, 0, nil, "%d" }, { number = assetIdState })
 					Iris.InputNum({ "Version", 1, 0, nil, "%d" }, { number = assetVersionState })
 
-					if Iris.Button({ "Insert" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to insert the asset into. Skipping...")
-						else
-							local id = math.floor(assetIdState.value)
-							local version = math.floor(assetVersionState.value)
-							local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}&version={version}`)
-							if success and objects then
-								for _, value: Instance in selected do
-									for _, object in objects do
-										object:Clone().Parent = value
-									end
-								end
-								println(`Inserted asset {id} (v{version}) into selection.`)
+					Iris.SameLine()
+					do
+						if Iris.Button({ "Insert Version" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to insert the asset into. Skipping...")
 							else
-								warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
+								local id = math.floor(assetIdState.value)
+								local version = math.floor(assetVersionState.value)
+								local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}&version={version}`)
+								if success and objects then
+									for _, value: Instance in selected do
+										for _, object in objects do
+											object:Clone().Parent = value
+										end
+									end
+									println(`Inserted asset {id} (v{version}) into {#selected} object(s).`)
+								else
+									warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
+								end
 							end
 						end
+
+						if Iris.Button({ "Insert Latest" }).clicked() then
+							local selected = selection:Get()
+							if #selected == 0 then
+								println("Nothing is selected to insert the asset into. Skipping...")
+							else
+								local id = math.floor(assetIdState.value)
+								local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}`)
+								if success and objects then
+									for _, value: Instance in selected do
+										for _, object in objects do
+											object:Clone().Parent = value
+										end
+									end
+									println(`Inserted latest version of asset {id} into {#selected} object(s).`)
+								else
+									warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
+								end
+							end
+						end
+					end
+					Iris.End()
+				end
+				Iris.End()
+
+				Iris.CollapsingHeader({ "Upload & Export" })
+				do
+					Iris.TextDisabled({ "Publish or save selected models & assets" })
+
+					local selected = selection:Get()
+					if #selected == 0 then
+						Iris.TextDisabled({ "Target: No selection" })
+					elseif #selected == 1 then
+						Iris.Text({ `Target: "{selected[1].Name}" ({selected[1].ClassName})` })
+					else
+						Iris.Text({ `Target: {#selected} objects ("{selected[1].Name}", ...)` })
 					end
 
-					if Iris.Button({ "Insert Latest" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to insert the asset into. Skipping...")
-						else
-							local id = math.floor(assetIdState.value)
-							local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}`)
-							if success and objects then
-								for _, value: Instance in selected do
-									for _, object in objects do
-										object:Clone().Parent = value
-									end
-								end
-								println(`Inserted latest version of asset {id} into selection.`)
+					Iris.SameLine()
+					do
+						if Iris.Button({ "Upload to Roblox" }).clicked() then
+							local currentSelected = selection:Get()
+							if #currentSelected == 0 then
+								println("Nothing is selected to upload. Select an object in Explorer first.")
 							else
-								warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
+								local success, err = pcall(function()
+									plugin:SaveSelectedToRoblox()
+								end)
+								if success then
+									println(`Opened Roblox upload prompt for "{currentSelected[1].Name}".`)
+								else
+									warnln(`Failed to open upload prompt: {tostring(err)}`)
+								end
+							end
+						end
+
+						if Iris.Button({ "Save to File (.rbxm)" }).clicked() then
+							local currentSelected = selection:Get()
+							if #currentSelected == 0 then
+								println("Nothing is selected to save. Select an object in Explorer first.")
+							else
+								local suggestedName = currentSelected[1].Name .. ".rbxm"
+								local success, err = pcall(function()
+									plugin:PromptSaveSelection(suggestedName)
+								end)
+								if success then
+									println(`Opened file save prompt for "{currentSelected[1].Name}".`)
+								else
+									warnln(`Failed to open save prompt: {tostring(err)}`)
+								end
 							end
 						end
 					end
+					Iris.End()
 				end
 				Iris.End()
 			end
@@ -538,25 +644,32 @@ Iris:Connect(function()
 
 			Iris.Tab({ "Studio" })
 			do
-				Iris.CollapsingHeader({ "Utilities" })
+				Iris.CollapsingHeader({ "Character Spawners" })
 				do
-					if Iris.Button({ "R6 StarterCharacter" }).clicked() then
-						local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
-							or Instance.new("HumanoidDescription")
-						local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R6)
-						model:PivotTo(CFrame.new(workspace.InsertPoint))
-						model.Name = "StarterCharacter"
-						model.Parent = starterPlayer
-					end
+					Iris.TextDisabled({ "Spawn rigged StarterCharacter model into StarterPlayer" })
+					Iris.SameLine()
+					do
+						if Iris.Button({ "Spawn R6" }).clicked() then
+							local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
+								or Instance.new("HumanoidDescription")
+							local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R6)
+							model:PivotTo(CFrame.new(workspace.InsertPoint))
+							model.Name = "StarterCharacter"
+							model.Parent = starterPlayer
+							println("Spawned R6 StarterCharacter.")
+						end
 
-					if Iris.Button({ "R15 StarterCharacter" }).clicked() then
-						local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
-							or Instance.new("HumanoidDescription")
-						local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R15)
-						model:PivotTo(CFrame.new(workspace.InsertPoint))
-						model.Name = "StarterCharacter"
-						model.Parent = starterPlayer
+						if Iris.Button({ "Spawn R15" }).clicked() then
+							local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
+								or Instance.new("HumanoidDescription")
+							local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R15)
+							model:PivotTo(CFrame.new(workspace.InsertPoint))
+							model.Name = "StarterCharacter"
+							model.Parent = starterPlayer
+							println("Spawned R15 StarterCharacter.")
+						end
 					end
+					Iris.End()
 				end
 				Iris.End()
 			end
