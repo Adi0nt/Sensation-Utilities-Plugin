@@ -278,7 +278,51 @@ maid = require(packages.Maid)
 maid = maid.new()
 instance_newindex = rawLib.instance_newindex
 
+if (irisLib :: any).Internal then
+	local internal = (irisLib :: any).Internal
+	if internal._shutdown then
+		internal._shutdown = false
+		internal._started = false
+	end
+	if internal._connectedFunctions then
+		table.clear(internal._connectedFunctions)
+	end
+end
+
 Iris = irisLib.Init(coreGui)
+
+if (Iris :: any).Internal then
+	local internal = (Iris :: any).Internal
+	if internal._rootInstance == nil or internal._rootInstance.Parent == nil then
+		internal._generateRootInstance()
+		Iris.ForceRefresh()
+	end
+	if internal._connectedFunctions then
+		table.clear(internal._connectedFunctions)
+	end
+
+	-- Self-healing guard against corrupted VDOM/stackIndex
+	local originalGenNewWidget = internal._GenNewWidget
+	if originalGenNewWidget and not internal._patchedGenNewWidget then
+		internal._patchedGenNewWidget = true
+		internal._GenNewWidget = function(widgetType, arguments, states, ID)
+			local parentId = internal._IDStack[internal._stackIndex]
+			local parentWidget = internal._VDOM[parentId]
+			if parentWidget == nil then
+				internal._stackIndex = 1
+				internal._IDStack[1] = "R"
+				if internal._VDOM["R"] == nil then
+					internal._VDOM["R"] = internal._rootWidget
+				end
+				if internal._rootWidget and internal._rootWidget.ZOffset == nil then
+					internal._rootWidget.ZOffset = 0
+				end
+			end
+			return originalGenNewWidget(widgetType, arguments, states, ID)
+		end
+	end
+end
+
 local mutedColor = Color3.fromRGB(140, 148, 162)
 ;(Iris :: any).TextDisabled = function(args: { string })
 	local text = args[1] or ""
@@ -361,20 +405,12 @@ local function escapeRichText(str: string): string
 	return (string.gsub(string.gsub(string.gsub(str, "&", "&amp;"), "<", "&lt;"), ">", "&gt;"))
 end
 
-local currentCommit = "c31fc51"
+local currentCommit = "c303a72"
 
 local function fetchLatestCommit()
-	local success, response = pcall(function()
-		return httpService:RequestAsync({
-			Url = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/commit/main.patch",
-			Method = "GET",
-			Headers = {
-				["User-Agent"] = "RobloxStudio",
-			},
-		})
-	end)
-	if success and response and response.Success and response.Body then
-		local firstLine = string.split(response.Body, "\n")[1]
+	local body = getAsync("https://github.com/Adi0nt/Sensation-Utilities-Plugin/commit/main.patch", 2)
+	if body then
+		local firstLine = string.split(body, "\n")[1]
 		local match = string.match(firstLine, "^From (%x%x%x%x%x%x%x)")
 		if match then
 			currentCommit = match
@@ -400,7 +436,21 @@ local assetVersionState = Iris.State(0)
 
 const minCapabilities = SecurityCapabilities.new()
 
-Iris:Connect(function()
+local disconnectIris = Iris:Connect(function()
+	if (Iris :: any).Internal then
+		local internal = (Iris :: any).Internal
+		if internal._stackIndex ~= 1 then
+			internal._stackIndex = 1
+			internal._IDStack[1] = "R"
+		end
+		if internal._pushedIds and #internal._pushedIds ~= 0 then
+			table.clear(internal._pushedIds)
+		end
+		if internal._VDOM and internal._VDOM["R"] == nil then
+			internal._VDOM["R"] = internal._rootWidget
+		end
+	end
+
 	if not isWindowVisible.value then
 		return
 	end
@@ -767,13 +817,17 @@ Iris:Connect(function()
 	Iris.End()
 end)
 
+maid:Add(disconnectIris)
+
 maid:Add(button.Click:Connect(function()
 	isWindowVisible:set(not isWindowVisible.value)
 end))
 
 plugin.Unloading:Connect(function()
 	println("Closing plugin...")
-	Iris.Shutdown()
+	if (Iris :: any).Internal and (Iris :: any).Internal._connectedFunctions then
+		table.clear((Iris :: any).Internal._connectedFunctions)
+	end
 	maid:Destroy()
 	println("Closed plugin.")
 end)
