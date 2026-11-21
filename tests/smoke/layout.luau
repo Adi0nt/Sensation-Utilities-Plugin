@@ -51,12 +51,12 @@ local function verify(vw, vh, page, selectionKind)
 
 	-- Shell geometry
 	checks += 1
-	local hx, hy, hw, hh = rect(header)
-	if hh ~= 44 or hw ~= vw then flag(ctx, `header should be {vw}x44, got {hw}x{hh}`) end
+	checks += 1
+	if header ~= nil then flag(ctx, "there is no top bar any more") end
 	local sx, sy, sw, sh = rect(sidebar)
 	local expectedSidebar = if vw < 540 then 56 else 176
 	if math.abs(sw - expectedSidebar) > 1 then flag(ctx, `sidebar width {sw}, expected {expectedSidebar}`) end
-	if math.abs(sh - (vh - 44)) > 1 then flag(ctx, `sidebar height {sh}, expected {vh - 44}`) end
+	if math.abs(sh - (vh - 4)) > 1 then flag(ctx, `sidebar height {sh}, expected {vh - 4} (the window minus a 4 px gap under Studio's title bar)`) end
 	local mx, my, mw, mh = rect(main)
 	if math.abs(mw - (vw - expectedSidebar)) > 1 then flag(ctx, `main width {mw}, expected {vw - expectedSidebar}`) end
 	local stx, sty, stw, sth = rect(status)
@@ -66,12 +66,23 @@ local function verify(vw, vh, page, selectionKind)
 	if math.abs(py - my) > 1 then flag(ctx, `page area should start at the top of the content layer ({my}), starts at {py}`) end
 	if math.abs((py + ph) - sty) > 1 then flag(ctx, `page area should end where the status bar starts ({sty}), ends at {py + ph}`) end
 
-	-- Header contents fit: logo, selection summary and status/version side by side, inside the header
-	local logo, selection = find("Logo"), find("SelectionSummary")
-	local bx, _, bw = rect(logo); local slx, _, slw = rect(selection)
+	-- Selection chip: in the bottom-right corner of the status bar, inside it, clear of the message
+	local chip = status:FindFirstChild("SelectionSummary", true)
+	local message = status:FindFirstChild("Text", true)
 	checks += 1
-	if bx + bw > slx + 1 then flag(ctx, `header logo ({bx + bw}) overlaps the selection chip ({slx})`) end
-	if slx + slw > vw + 0.5 then flag(ctx, `header selection chip runs past the window ({slx + slw} > {vw})`) end
+	if chip == nil then
+		flag(ctx, "the selection chip is missing from the status bar")
+	else
+		local chx, chy, chw, chh = rect(chip)
+		if chx + chw > stx + stw + 0.5 then flag(ctx, `selection chip runs past the status bar ({chx + chw} > {stx + stw})`) end
+		if chx < stx then flag(ctx, "selection chip starts left of the status bar") end
+		if math.abs((stx + stw) - (chx + chw)) > 21 then flag(ctx, `selection chip is not in the bottom-right corner (right edge {chx + chw}, bar {stx + stw})`) end
+		if chy < sty or chy + chh > sty + sth + 0.5 then flag(ctx, "selection chip is not inside the status bar vertically") end
+		if message ~= nil then
+			local mx2, _, mw2 = rect(message)
+			if mx2 + mw2 > chx + 0.5 then flag(ctx, `status message ({mx2 + mw2}) overlaps the selection chip ({chx})`) end
+		end
+	end
 
 	-- Sidebar footer: inside the sidebar, below the last nav item, and everything in it fits the sidebar's width
 	local footer, lastNav = find("Footer"), find("Nav_Studio")
@@ -87,11 +98,10 @@ local function verify(vw, vh, page, selectionKind)
 		end
 	end
 
-	-- The logo, the nav icons and the footer status dot share one centre line (the rail's), expanded or not
+	-- The nav icons and the footer status dot share one centre line (the rail's), expanded or not
 	local function centreX(d) return d.AbsolutePosition.X + d.AbsoluteSize.X / 2 end
 	local navIcon, statusDot = find("IconSlot"), find("StatusIndicator")
 	checks += 1
-	if math.abs(centreX(logo) - centreX(navIcon)) > 1 then flag(ctx, `logo centre ({centreX(logo)}) is not over the nav icons ({centreX(navIcon)})`) end
 	if math.abs(centreX(statusDot) - centreX(navIcon)) > 1 then flag(ctx, `footer status dot ({centreX(statusDot)}) is not under the nav icons ({centreX(navIcon)})`) end
 
 	-- Content column: never wider than 640, never narrower than the window allows

@@ -22,6 +22,8 @@ export type Line = {
 export type Props = {
 	line: Flux.Reactive<Line>,
 	onDismiss: () -> (),
+	--- Pinned to the right end of the bar, after the dismiss button (the selection chip).
+	trailing: GuiObject?,
 }
 
 local MIN_HEIGHT = 40
@@ -117,6 +119,8 @@ local function StatusMessage(props: Props): Frame
 			end, function()
 				return IconButton({ icon = "close", label = "Dismiss", onClick = props.onDismiss })
 			end),
+
+			props.trailing,
 		},
 	}
 end

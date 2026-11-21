@@ -40,52 +40,37 @@ export type App = {
 	unmount: () -> (),
 }
 
-local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "studio" } } = {
-	{ page = "Modules", label = "Modules", icon = "modules" },
-	{ page = "Marketplace", label = "Marketplace", icon = "market" },
-	{ page = "Studio", label = "Studio", icon = "studio" },
+-- `owns` says whether a running operation (by its busy key) belongs to the page, so its nav item can show a spinner.
+local function keys(list: { string }): (string) -> boolean
+	local set: { [string]: boolean } = {}
+	for _, key in list do
+		set[key] = true
+	end
+	return function(key: string): boolean
+		return set[key] == true
+	end
+end
+
+local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "studio", owns: (string) -> boolean } } = {
+	{
+		page = "Modules",
+		label = "Modules",
+		icon = "modules",
+		owns = keys({ "bypass", "unbypass", "sandbox", "unsandbox", "clean", "preset", "reload" }),
+	},
+	{ page = "Marketplace", label = "Marketplace", icon = "market", owns = keys({ "latest", "version", "upload", "save" }) },
+	{
+		page = "Studio",
+		label = "Studio",
+		icon = "studio",
+		owns = function(key: string): boolean
+			return string.sub(key, 1, 5) == "spawn"
+		end,
+	},
 }
 
--- The logo, the nav icons and the footer dot all centre on the icon rail's centre line (half of its width).
-local LOGO_SIZE = 28
+-- The nav icons and the footer dot centre on the icon rail's centre line (half of its width).
 local RAIL_CENTRE = Theme.size.sidebarCompact / 2
-
-local function Header(state: State.State): Frame
-	return new "Frame" {
-		Name = "Header",
-		Size = UDim2.new(1, 0, 0, Theme.size.header),
-		BackgroundColor3 = C.chrome,
-
-		new "Frame" {
-			Name = "Content",
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Flux.padding({ x = RAIL_CENTRE - LOGO_SIZE / 2 }),
-			Flux.list({ direction = "x", gap = 12, align = "center", justify = "between" }),
-
-			-- Logo: the same icon as the toolbar button.
-			new "ImageLabel" {
-				Name = "Logo",
-				Size = UDim2.fromOffset(LOGO_SIZE, LOGO_SIZE),
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://16517502292",
-				ScaleType = Enum.ScaleType.Fit,
-				Flux.corner(Theme.radius.sm),
-			},
-
-			-- What is selected in Explorer: context for the actions, so it sits at the right of the bar. It may not grow
-			-- past the room between the logo and the window edge, so a long name truncates.
-			SelectionSummary({
-				summary = state.summary,
-				variant = "chip",
-				maxWidth = function()
-					local room = state.width() - (RAIL_CENTRE - LOGO_SIZE / 2) * 2 - LOGO_SIZE - 12
-					return if room > 0 then math.min(room, 320) else 320
-				end,
-			}),
-		},
-	}
-end
 
 --- The bottom of the sidebar: what the plugin is doing (dot or spinner), the version, and a toggle that collapses the
 --- sidebar to the icon rail or opens it again. In the rail only the dot and the toggle show, stacked.
@@ -112,7 +97,7 @@ local function SidebarFooter(controller: Controller.Controller): Frame
 			Name = "Divider",
 			Position = UDim2.fromOffset(Theme.space.sm, 0),
 			Size = UDim2.new(1, -Theme.space.sm * 2, 0, 1),
-			BackgroundColor3 = C.borderSubtle,
+			BackgroundColor3 = C.border,
 		},
 
 		new "Frame" {
@@ -193,24 +178,7 @@ end
 local function Sidebar(controller: Controller.Controller): Frame
 	local state, actions = controller.state, controller.actions
 
-	-- A titled group, like Caelum's sidebar sections; the label hides in the icon rail.
-	local items: { any } = {
-		Flux.show(function()
-			return not state.compactNav()
-		end, function()
-			return new "TextLabel" {
-				Name = "GroupLabel",
-				Size = UDim2.new(1, 0, 0, 24),
-				BackgroundTransparency = 1,
-				Text = "Tools",
-				TextXAlignment = Enum.TextXAlignment.Left,
-				TextColor3 = C.textTertiary,
-				FontFace = Theme.text.overline.face,
-				TextSize = Theme.text.overline.size,
-				Flux.padding({ left = Theme.space.md }),
-			}
-		end),
-	}
+	local items: { any } = {}
 	for _, entry in NAV do
 		table.insert(
 			items,
@@ -221,6 +189,17 @@ local function Sidebar(controller: Controller.Controller): Frame
 					return state.page() == entry.page
 				end,
 				compact = state.compactNav,
+				-- Modules shows how many ModuleScripts the selection covers; any page shows a spinner while it works.
+				badge = if entry.page == "Modules"
+					then function(): string?
+						local count = state.moduleCount()
+						return if count <= 0 then nil elseif count > 99 then "99+" else tostring(count)
+					end
+					else nil,
+				busy = function()
+					local key = state.busy()
+					return key ~= nil and entry.owns(key)
+				end,
 				onClick = function()
 					actions.navigate(entry.page)
 				end,
@@ -240,7 +219,7 @@ local function Sidebar(controller: Controller.Controller): Frame
 			Name = "Items",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Flux.padding(Theme.space.sm),
+			Flux.padding({ x = Theme.space.sm, top = Theme.space.md, bottom = Theme.space.sm }),
 			Flux.list({ gap = Theme.space.xs }),
 			items,
 		},
@@ -249,19 +228,49 @@ local function Sidebar(controller: Controller.Controller): Frame
 	}
 end
 
-local function PageArea(controller: Controller.Controller): ScrollingFrame
+-- Scrolling content fades out over the last pixels before an edge instead of being sliced through mid-line.
+local FADE_TOP = 12
+local FADE_BOTTOM = 24
+
+--- A strip of the canvas colour that goes from clear to solid, pinned to the top or bottom of the page viewport.
+local function EdgeFade(name: string, atBottom: boolean, height: number): Frame
+	return new "Frame" {
+		Name = name,
+		AnchorPoint = Vector2.new(0, if atBottom then 1 else 0),
+		-- Inset by the content layer's 1 px border so the strip never paints over it.
+		Position = UDim2.new(0, 1, if atBottom then 1 else 0, if atBottom then 0 else 1),
+		Size = UDim2.new(1, -2, 0, height),
+		BackgroundColor3 = C.canvas,
+		BorderSizePixel = 0,
+		ZIndex = 2,
+		-- The top strip sits in the content layer's rounded top-left corner, so it follows the curve (radius minus the border).
+		Flux.corner({
+			topLeft = if atBottom then 0 else Theme.radius.md - 1,
+			topRight = 0,
+			bottomLeft = 0,
+			bottomRight = 0,
+		}),
+		new "UIGradient" {
+			Rotation = 90,
+			Transparency = if atBottom
+				then NumberSequence.new(1, 0) -- clear at the top of the strip, solid against the bar
+				else NumberSequence.new(0, 1),
+		},
+	}
+end
+
+local function PageArea(controller: Controller.Controller): Frame
 	local state = controller.state
 
 	local scroller = new "ScrollingFrame" {
 		Name = "Pages",
-		Size = UDim2.fromScale(1, 0),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.borderStrong,
-		Flux.flex(),
 
 		new "Frame" {
 			Name = "Content",
@@ -299,7 +308,16 @@ local function PageArea(controller: Controller.Controller): ScrollingFrame
 		scroller.CanvasPosition = Vector2.zero
 	end)
 
-	return scroller
+	return new "Frame" {
+		Name = "PageArea",
+		Size = UDim2.fromScale(1, 0),
+		BackgroundTransparency = 1,
+		Flux.flex(),
+
+		scroller,
+		EdgeFade("FadeTop", false, FADE_TOP),
+		EdgeFade("FadeBottom", true, FADE_BOTTOM),
+	}
 end
 
 --- Builds the UI into `config.widget`. Call `unmount` to remove it again.
@@ -341,9 +359,11 @@ local function mount(config: Config): App
 					Name = "Shell",
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
+					-- A little room under Studio's title bar, so the content layer's top border and rounded corner are
+					-- fully inside the widget instead of half-clipped by its edge.
+					Flux.padding({ top = Theme.space.xs }),
 					Flux.list({ gap = 0 }),
 
-					Header(state),
 
 					new "Frame" {
 						Name = "Body",
@@ -370,7 +390,19 @@ local function mount(config: Config): App
 							Flux.list({ gap = 0 }),
 
 							PageArea(controller),
-							StatusMessage({ line = state.statusLine, onDismiss = actions.dismissStatus }),
+							StatusMessage({
+								line = state.statusLine,
+								onDismiss = actions.dismissStatus,
+								-- Bottom-right corner. Capped to under half the bar so a long message keeps its room.
+								trailing = SelectionSummary({
+									summary = state.summary,
+									variant = "chip",
+									maxWidth = function()
+										local bar = state.width() - (if state.compactNav() then Theme.size.sidebarCompact else Theme.size.sidebar)
+										return if bar > 0 then math.clamp(bar * 0.45, 96, 320) else 320
+									end,
+								}),
+							}),
 						},
 					},
 				},

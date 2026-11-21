@@ -24,6 +24,7 @@ return {
 			eq(summary.count, 0)
 			eq(summary.title, "No selection")
 			eq(summary.detail, "Select an object in Explorer.")
+			eq(summary.className, nil, "no icon when nothing is selected")
 		end)
 
 		test("single selection shows the name and class", function()
@@ -39,6 +40,12 @@ return {
 			eq(summary.count, 5)
 			eq(summary.title, "5 objects selected")
 			eq(summary.detail, "Part ×3 · Script ×2")
+		end)
+
+		test("the icon class is the shared class of the selection, or nothing when mixed", function()
+			eq(Format.summarize({ { name = "Handler", className = "Script" } }).className, "Script")
+			eq(Format.summarize(items({ "Part", "Part", "Part" })).className, "Part")
+			eq(Format.summarize(items({ "Part", "Script" })).className, nil)
 		end)
 
 		test("one-line form for the chip", function()

@@ -47,6 +47,7 @@ export type Colors = {
 	accentHover: Color3,
 	accentPressed: Color3,
 	accentSubtle: Color3,
+	accentSubtleHover: Color3,
 	accentText: Color3,
 	onAccent: Color3,
 	-- Status
@@ -169,6 +170,8 @@ local function build(get: Getter): Colors
 		accentHover = mix(accent, get("DialogMainButton", "Hover"), 0.2),
 		accentPressed = get("DialogMainButton", "Pressed"),
 		accentSubtle = get("Item", "Selected"), -- Studio's selection colour
+		-- A selected row under the pointer: a touch toward the accent, so it still reads as a selection.
+		accentSubtleHover = mix(get("Item", "Selected"), accent, 0.22),
 		accentText = get("InfoText"),
 		onAccent = get("DialogMainButtonText"),
 
@@ -233,7 +236,7 @@ Theme.text = {
 	body = style(Enum.Font.BuilderSans, 13),
 	label = style(Enum.Font.BuilderSansMedium, 13), -- input labels, buttons
 	helper = style(Enum.Font.BuilderSans, 12), -- captions, helper text
-	overline = style(Enum.Font.BuilderSansBold, 11), -- sidebar group labels
+	overline = style(Enum.Font.BuilderSansBold, 11), -- nav count badges
 	mono = style(Enum.Font.RobotoMono, 12),
 }
 
@@ -260,7 +263,6 @@ Theme.radius = {
 
 Theme.size = {
 	control = 32, -- buttons, inputs, dropdown triggers (Caelum's comfortable control is 36; a dock is tighter)
-	header = 44, -- Caelum's top bar
 	sidebar = 176,
 	sidebarCompact = 56, -- Caelum's rail
 	sidebarItem = 32, -- Caelum's nav item

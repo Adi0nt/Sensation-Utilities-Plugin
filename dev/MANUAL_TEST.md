@@ -26,7 +26,8 @@ at a narrow and a wide size helps most).
 ## 2. Look and feel
 
 - [ ] The sidebar footer shows the status dot and version, and its chevron button collapses the sidebar to the icon rail and opens it again (the choice sticks while you resize); in the rail only the dot and the button show.
-- [ ] The top bar is a single row: the toolbar icon on the left, and on the right a compact chip showing the selection (name, then class). It updates as you click in Explorer and truncates with an ellipsis for a very long name instead of touching the icon. Status and version are in the sidebar footer. Studio's own title bar is the only place the name appears.
+- [ ] Nav markers: select a few ModuleScripts and the Modules item shows their count (a dot on the icon in the rail); start an operation (e.g. Reload, or Marketplace "Latest") and that page's nav item shows a spinner until it finishes.
+- [ ] There is no top bar: the sidebar and the page start right under Studio's title bar. The selection is an Explorer-style chip at the far right of the status bar: the same class icon Explorer shows plus the name, on the selection blue (a neutral pill saying "No selection" when nothing is selected). It updates as you click in Explorer, hovering it shows `name · class`, and a long name truncates with an ellipsis without squeezing the status message. The icon matches Explorer's for several classes (Script, Part, Folder, ModuleScript).
 - [ ] The panel's colours match Studio's own panels (Explorer, Properties) in the current theme.
 - [ ] Switch Studio's theme (File > Studio Settings > Studio > Theme): the panel rebuilds in the new colours without errors, keeps the page you were on, and everything is readable in both dark and light.
 - [ ] The "Ready" text and its dot are vertically centred in the status bar, and level with each other.

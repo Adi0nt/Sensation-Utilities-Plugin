@@ -1,11 +1,13 @@
 --!strict
---- Shows what is selected in Explorer. `chip` is the compact one-line pill at the right of the top bar; `inline` is the
+--- Shows what is selected in Explorer. `chip` is the compact Explorer-style pill at the right end of the status bar; `inline` is the
 --- two-line version inside a panel (the publishing target). Driven by a summary node, so both update on selection
 --- changes without rebuilding anything.
 
 local Flux = require("../../Flux")
+local ClassIcon = require("./ClassIcon")
 local Format = require("../../Core/Format")
 local Theme = require("../Theme")
+local Tooltip = require("./Tooltip")
 
 local new = Flux.new
 local C = Theme.color
@@ -15,7 +17,7 @@ export type Props = {
 	variant: ("chip" | "inline")?,
 	--- Small caption above the name (inline only), e.g. "Target".
 	caption: string?,
-	--- Widest the chip may get, so long names truncate instead of pushing into the logo (chip only).
+	--- Widest the chip may get, so long names truncate instead of crowding the status message (chip only).
 	maxWidth: Flux.Reactive<number>?,
 }
 
@@ -26,10 +28,12 @@ local CAPTION_HEIGHT = 14
 local CHIP_HEIGHT = 24
 local CHIP_PADDING = 10
 local CHIP_GAP = 8
-local DOT = 8
+local DOT = 8 -- the inline variant's indicator
+local ICON = 16 -- the chip's class icon
 local CHIP_DEFAULT_MAX = 320
 
---- The compact one-line pill: `● name · class`.
+--- The compact pill, modelled on an Explorer row: the class icon and the name on the selection blue. With nothing
+--- selected it is a quiet neutral pill. The full "name · class" is in the hover tooltip.
 local function Chip(props: Props): Frame
 	local hasSelection = Flux.computed(function()
 		return Flux.read(props.summary).kind ~= "none"
@@ -38,25 +42,21 @@ local function Chip(props: Props): Frame
 		return Flux.read(props.maxWidth) or CHIP_DEFAULT_MAX
 	end
 
-	return new "Frame" {
+	local chip = new "Frame" {
 		Name = "SelectionSummary",
 		Size = UDim2.fromOffset(0, CHIP_HEIGHT),
 		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = C.control,
+		BackgroundColor3 = Flux.tween(function()
+			return if hasSelection() then C.accent else C.control
+		end, Theme.tween.base),
 		Flux.corner(Theme.radius.sm),
 		Flux.padding({ x = CHIP_PADDING }),
 		Flux.list({ direction = "x", gap = CHIP_GAP, align = "center" }),
 		Flux.sizeConstraint({ maxWidth = chipMax }),
 
-		-- Indicator dot: accent when something is selected.
-		new "Frame" {
-			Name = "Dot",
-			Size = UDim2.fromOffset(DOT, DOT),
-			BackgroundColor3 = Flux.tween(function()
-				return if hasSelection() then C.accent else C.neutral
-			end, Theme.tween.base),
-			Flux.corner(UDim.new(0.5, 0)),
-		},
+		ClassIcon.new(function(): string?
+			return Flux.read(props.summary).className
+		end),
 
 		new "TextLabel" {
 			Name = "Title",
@@ -64,23 +64,29 @@ local function Chip(props: Props): Frame
 			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundTransparency = 1,
 			Text = function()
-				return Format.oneLine(Flux.read(props.summary))
+				return Flux.read(props.summary).title
 			end,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextColor3 = function()
-				return if hasSelection() then C.text else C.textMuted
+				return if hasSelection() then C.onAccent else C.textMuted
 			end,
 			FontFace = Theme.text.label.face,
 			TextSize = Theme.text.label.size,
-			-- The chip's maximum minus its padding, dot and gap.
+			-- The chip's maximum minus its padding, icon and gap.
 			Flux.sizeConstraint({
 				maxWidth = function()
-					return chipMax() - CHIP_PADDING * 2 - DOT - CHIP_GAP
+					return chipMax() - CHIP_PADDING * 2 - ICON - CHIP_GAP
 				end,
 			}),
 		},
 	}
+
+	Tooltip.attach(chip, function(): string?
+		local summary = Flux.read(props.summary)
+		return if summary.kind == "none" then nil else Format.oneLine(summary)
+	end)
+	return chip
 end
 
 --- The two-line version inside a panel.

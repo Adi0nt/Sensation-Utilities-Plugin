@@ -10,6 +10,9 @@ export type Summary = {
 	title: string,
 	--- Second line: the class, a class breakdown, or a hint.
 	detail: string,
+	--- The class to show an icon for: the object's class, or the shared class of a multi-selection (`nil` when the
+	--- classes differ or nothing is selected).
+	className: string?,
 }
 
 local MAX_CLASSES_SHOWN = 2
@@ -48,16 +51,24 @@ end
 function Format.summarize(items: { Item }): Summary
 	local count = #items
 	if count == 0 then
-		return { kind = "none", count = 0, title = "No selection", detail = "Select an object in Explorer." }
+		return { kind = "none", count = 0, title = "No selection", detail = "Select an object in Explorer.", className = nil }
 	end
 	if count == 1 then
-		return { kind = "single", count = 1, title = items[1].name, detail = items[1].className }
+		return { kind = "single", count = 1, title = items[1].name, detail = items[1].className, className = items[1].className }
+	end
+	local shared: string? = items[1].className
+	for _, item in items do
+		if item.className ~= shared then
+			shared = nil
+			break
+		end
 	end
 	return {
 		kind = "multi",
 		count = count,
 		title = `{count} objects selected`,
 		detail = Format.classBreakdown(items),
+		className = shared,
 	}
 end
 

@@ -4,7 +4,7 @@
 
 local Flux = require("../../Flux")
 
-export type Kind = "modules" | "market" | "studio" | "chevron" | "close"
+export type Kind = "modules" | "market" | "studio" | "chevron" | "close" | "check"
 
 local new = Flux.new
 
@@ -73,6 +73,13 @@ local drawings: { [Kind]: (color: Color) -> { Instance } } = {
 		return {
 			bar(5.4, 7.6, 7.2, 1.6, 45, color),
 			bar(10.6, 7.6, 7.2, 1.6, -45, color),
+		}
+	end,
+	-- A tick.
+	check = function(color)
+		return {
+			bar(5.1, 9.9, 5.6, 1.7, 45, color),
+			bar(9.8, 8.1, 9.4, 1.7, -45, color),
 		}
 	end,
 	close = function(color)

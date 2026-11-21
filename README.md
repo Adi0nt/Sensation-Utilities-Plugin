@@ -28,7 +28,7 @@ library.
 - The panel uses your Studio theme's colours and follows it when you change themes.
 - Open or close the panel with the **Sensation Utilities** toolbar button. It is a normal Studio dock widget: dock it,
   float it, resize it, hide it and reopen it. Studio remembers where you left it.
-- **Navigation** (Modules, Marketplace, Studio) is a sidebar that collapses to icons in a narrow dock.
+- **Navigation** (Modules, Marketplace, Studio) is a sidebar that collapses to icons in a narrow dock. Its items carry live markers: the selected ModuleScript count on Modules, and a spinner on whichever page is running an operation.
 - The **selection bar** under the header always shows what is selected in Explorer and updates as it changes.
 - Every action reports its outcome in the **status strip** at the bottom. Success and info messages fade back to
   *Ready*; warnings and errors stay until you dismiss them. Output-window logging is unchanged.

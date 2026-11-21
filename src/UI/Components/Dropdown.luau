@@ -28,6 +28,7 @@ local ROW_HEIGHT = 30
 local MENU_PADDING = 4
 local MENU_MAX_HEIGHT = 200
 local MENU_GAP = 4
+local CHECK_SLOT = 30 -- room kept at a row's right end for the tick
 local EDGE = 8 -- keep the menu this far from the window edge
 
 local function Dropdown(props: Props): Frame
@@ -194,7 +195,8 @@ local function Dropdown(props: Props): Frame
 								Name = "Option",
 								Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
 								Text = "",
-								Flux.corner(Theme.radius.sm),
+								-- Concentric with the menu: its radius minus the menu padding.
+								Flux.corner(Theme.radius.md - MENU_PADDING),
 							}
 							local rowHovered = Flux.Interact.hover(row)
 							local isSelected = Flux.computed(function()
@@ -203,7 +205,9 @@ local function Dropdown(props: Props): Frame
 
 							return Flux.edit(row) {
 								BackgroundColor3 = Flux.tween(function()
-									if isSelected() then
+									if isSelected() and rowHovered() then
+										return C.accentSubtleHover
+									elseif isSelected() then
 										return C.accentSubtle
 									elseif rowHovered() then
 										return C.controlHover
@@ -219,19 +223,28 @@ local function Dropdown(props: Props): Frame
 
 								new "TextLabel" {
 									Position = UDim2.fromOffset(10, 0),
-									Size = UDim2.new(1, -20, 1, 0),
+									Size = UDim2.new(1, -(10 + CHECK_SLOT), 1, 0),
 									BackgroundTransparency = 1,
 									Text = function()
 										return option().label
 									end,
 									TextXAlignment = Enum.TextXAlignment.Left,
 									TextTruncate = Enum.TextTruncate.AtEnd,
-									TextColor3 = function()
-										return if isSelected() then C.accentText else C.text
+									TextColor3 = C.text,
+									FontFace = function()
+										return if isSelected() then Theme.text.label.face else Theme.text.body.face
 									end,
-									FontFace = Theme.text.body.face,
 									TextSize = Theme.text.body.size,
 								},
+
+								-- The current choice carries a tick as well as the fill, so it never relies on colour alone.
+								Flux.show(isSelected, function()
+									return Flux.edit(Icon("check", C.accentText)) {
+										Name = "Selected",
+										AnchorPoint = Vector2.new(1, 0.5),
+										Position = UDim2.new(1, -10, 0.5, 0),
+									}
+								end),
 							}
 						end),
 					},
