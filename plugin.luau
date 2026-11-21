@@ -380,13 +380,13 @@ Iris:Connect(function()
 	do
 		local currentSelection = selection:Get()
 		local selCount = #currentSelection
-		if selCount == 0 then
-			Iris.Text({ "Selection: None (select objects in Explorer)", false, mutedColor })
-		elseif selCount == 1 then
-			Iris.Text({ `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]` })
-		else
-			Iris.Text({ `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)` })
-		end
+		local selectionText = if selCount == 0
+			then "Selection: None (select objects in Explorer)"
+			elseif selCount == 1 then `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]`
+			else `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)`
+		local selectionColor = if selCount == 0 then mutedColor else nil
+
+		Iris.Text({ selectionText, false, selectionColor })
 
 		Iris.Separator()
 
@@ -412,10 +412,12 @@ Iris:Connect(function()
 							end
 						end
 						Iris.End()
-					elseif methodCount == 1 and activeMethod then
-						Iris.Text({ `Method: {activeMethod.Name}` })
 					else
-						Iris.Text({ "No methods loaded", false, mutedColor })
+						local methodText = if methodCount == 1 and activeMethod
+							then `Method: {activeMethod.Name}`
+							else "No methods loaded"
+						local methodColor = if methodCount == 1 and activeMethod then nil else mutedColor
+						Iris.Text({ methodText, false, methodColor })
 					end
 
 					Iris.Combo({ "Mode" }, { index = modeState })
@@ -636,13 +638,13 @@ Iris:Connect(function()
 					Iris.Text({ "Publish or save selected models & assets", false, mutedColor })
 
 					local selected = selection:Get()
-					if #selected == 0 then
-						Iris.Text({ "Target: No selection", false, mutedColor })
-					elseif #selected == 1 then
-						Iris.Text({ `Target: "{selected[1].Name}" ({selected[1].ClassName})` })
-					else
-						Iris.Text({ `Target: {#selected} objects ("{selected[1].Name}", ...)` })
-					end
+					local targetText = if #selected == 0
+						then "Target: No selection"
+						elseif #selected == 1 then `Target: "{selected[1].Name}" ({selected[1].ClassName})`
+						else `Target: {#selected} objects ("{selected[1].Name}", ...)`
+					local targetColor = if #selected == 0 then mutedColor else nil
+
+					Iris.Text({ targetText, false, targetColor })
 
 					Iris.SameLine()
 					do
