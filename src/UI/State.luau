@@ -206,7 +206,7 @@ function State.new(config: Config): State
 	local stackCards = Flux.computed(function()
 		-- Based on the room the page actually has: the window minus the sidebar and the page padding.
 		local sidebar = if compactNav() then Theme.size.sidebarCompact else Theme.size.sidebar
-		local content = width() - sidebar - Theme.space.md * 2
+		local content = width() - sidebar - Theme.size.pagePadding * 2
 		return width() > 0 and content < Theme.breakpoint.stackCards
 	end)
 

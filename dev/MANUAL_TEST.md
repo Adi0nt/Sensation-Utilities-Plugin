@@ -19,7 +19,7 @@ at a narrow and a wide size helps most).
 - [ ] Closing the panel with its own X also un-highlights the button.
 - [ ] Dock it left, right, bottom, as a tab; float it; resize it repeatedly. No clipped or overlapping controls.
 - [ ] At ~320 px wide: sidebar is icons only, content scrolls, header does not overflow.
-- [ ] At ~600 px+: sidebar shows labels; on the Studio page R6/R15 sit side by side; at 900 px+ content stops at ~640 px.
+- [ ] At ~600 px+: sidebar shows labels; on the Studio page R6/R15 sit side by side; at 900 px+ content stops at ~720 px.
 - [ ] Close and reopen the panel five times: no duplicate content, no errors.
 - [ ] Restart Studio: the panel reopens where you left it.
 

@@ -23,7 +23,7 @@ export type Props = {
 	disabled: Flux.Reactive<boolean>?,
 }
 
-local FIELD_HEIGHT = Theme.size.control + 2
+local FIELD_HEIGHT = Theme.size.control
 local ROW_HEIGHT = 30
 local MENU_PADDING = 4
 local MENU_MAX_HEIGHT = 200
@@ -65,27 +65,20 @@ local function Dropdown(props: Props): Frame
 		Name = "Trigger",
 		Size = UDim2.new(1, 0, 0, FIELD_HEIGHT),
 		Text = "",
-		Flux.corner(Theme.radius.md),
+		Flux.corner(Theme.radius.sm),
 	}
 
 	local hovered = Flux.Interact.hover(trigger)
-	local pressed = Flux.Interact.press(trigger)
 
 	local glyphColor = Flux.computed(function()
-		return if blocked() then C.textDisabled else C.textMuted
+		return if blocked() then C.textTertiary else C.textMuted
 	end)
 
 	Flux.edit(trigger) {
-		BackgroundColor3 = Flux.tween(function()
-			if blocked() then
-				return C.disabledBg
-			elseif pressed() then
-				return C.inputPressed
-			elseif hovered() or open() then
-				return C.inputHover
-			end
-			return C.input
-		end, Theme.tween.fast),
+		-- A select is an input: a sunken well whose outline reacts.
+		BackgroundColor3 = function()
+			return if blocked() then C.subtle else C.sunken
+		end,
 
 		Activated = function()
 			if not blocked() then
@@ -97,11 +90,11 @@ local function Dropdown(props: Props): Frame
 			thickness = 1,
 			color = Flux.tween(function()
 				if blocked() then
-					return C.border
+					return C.borderSubtle
 				elseif open() then
 					return C.accent
 				elseif hovered() then
-					return C.borderHover
+					return C.borderStrong
 				end
 				return C.border
 			end, Theme.tween.fast),
@@ -121,10 +114,8 @@ local function Dropdown(props: Props): Frame
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextColor3 = function()
-				if blocked() then
-					return C.textDisabled
-				elseif selectedLabel() == nil then
-					return C.placeholder
+				if blocked() or selectedLabel() == nil then
+					return C.textTertiary
 				end
 				return C.text
 			end,
@@ -182,10 +173,10 @@ local function Dropdown(props: Props): Frame
 						local y = if opensUp() then top - MENU_GAP - menuHeight() else top + triggerSize().Y + MENU_GAP
 						return UDim2.fromOffset(x, y)
 					end,
-					BackgroundColor3 = C.surface,
+					BackgroundColor3 = C.popup,
 					ZIndex = 41,
 					Flux.corner(Theme.radius.md),
-					Flux.stroke({ thickness = 1, color = C.border }),
+					Flux.stroke({ thickness = 1, color = C.borderStrong }),
 
 					new "ScrollingFrame" {
 						Size = UDim2.fromScale(1, 1),
@@ -215,9 +206,9 @@ local function Dropdown(props: Props): Frame
 									if isSelected() then
 										return C.accentSubtle
 									elseif rowHovered() then
-										return C.input
+										return C.controlHover
 									end
-									return C.surface
+									return C.popup
 								end, Theme.tween.fast),
 
 								Activated = function()
@@ -236,7 +227,7 @@ local function Dropdown(props: Props): Frame
 									TextXAlignment = Enum.TextXAlignment.Left,
 									TextTruncate = Enum.TextTruncate.AtEnd,
 									TextColor3 = function()
-										return C.text
+										return if isSelected() then C.accentText else C.text
 									end,
 									FontFace = Theme.text.body.face,
 									TextSize = Theme.text.body.size,

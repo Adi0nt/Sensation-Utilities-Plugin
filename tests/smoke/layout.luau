@@ -52,11 +52,11 @@ local function verify(vw, vh, page, selectionKind)
 	-- Shell geometry
 	checks += 1
 	local hx, hy, hw, hh = rect(header)
-	if hh ~= 48 or hw ~= vw then flag(ctx, `header should be {vw}x48, got {hw}x{hh}`) end
+	if hh ~= 44 or hw ~= vw then flag(ctx, `header should be {vw}x44, got {hw}x{hh}`) end
 	local sx, sy, sw, sh = rect(sidebar)
-	local expectedSidebar = if vw < 540 then 56 else 160
+	local expectedSidebar = if vw < 540 then 56 else 176
 	if math.abs(sw - expectedSidebar) > 1 then flag(ctx, `sidebar width {sw}, expected {expectedSidebar}`) end
-	if math.abs(sh - (vh - 48)) > 1 then flag(ctx, `sidebar height {sh}, expected {vh - 48}`) end
+	if math.abs(sh - (vh - 44)) > 1 then flag(ctx, `sidebar height {sh}, expected {vh - 44}`) end
 	local mx, my, mw, mh = rect(main)
 	if math.abs(mw - (vw - expectedSidebar)) > 1 then flag(ctx, `main width {mw}, expected {vw - expectedSidebar}`) end
 	local stx, sty, stw, sth = rect(status)
@@ -78,7 +78,7 @@ local function verify(vw, vh, page, selectionKind)
 	-- Content column: never wider than 640, never narrower than the window allows
 	local cx, cy, cw, ch = rect(column)
 	checks += 1
-	if cw > 640.5 then flag(ctx, `content column is {cw}px wide (max 640)`) end
+	if cw > 720.5 then flag(ctx, `content column is {cw}px wide (max 720)`) end
 	if cx < px - 0.5 or cx + cw > px + pw + 0.5 then flag(ctx, "content column leaves the page area horizontally") end
 
 	-- Every visible GuiObject in the page content must sit inside its parent horizontally (no clipping/overflow)
@@ -128,7 +128,7 @@ local function verify(vw, vh, page, selectionKind)
 		local x6, y6, w6, h6 = rect(r6); local x15, y15, w15, h15 = rect(r15)
 		checks += 1
 		local sideBySide = math.abs(y6 - y15) < 1
-		local contentWidth = vw - expectedSidebar - 32
+		local contentWidth = vw - expectedSidebar - 40
 		if contentWidth < 400 and sideBySide then flag(ctx, "cards should stack when the content column is under 400px") end
 		if contentWidth >= 400 and not sideBySide then flag(ctx, "cards should be side by side when there is room") end
 		if sideBySide and (x6 + w6 > x15 + 1) then flag(ctx, "R6 and R15 cards overlap") end

@@ -34,19 +34,16 @@ local function IconButton(props: Props): TextButton
 	end)
 
 	local fillColor = Flux.tween(function()
-		if isDisabled() then
-			return C.surface
-		elseif pressed() then
-			return C.inputPressed
-		elseif hovered() then
-			return C.input
-		end
-		return C.surface
+		return if pressed() then C.controlPressed else C.controlHover
+	end, Theme.tween.fast)
+	-- Quiet at rest: a wash appears only on hover or press.
+	local fillTransparency = Flux.tween(function()
+		return if not isDisabled() and (hovered() or pressed()) then 0 else 1
 	end, Theme.tween.fast)
 
 	local glyphColor = Flux.computed(function()
 		if isDisabled() then
-			return C.textDisabled
+			return C.textTertiary
 		elseif hovered() then
 			return C.text
 		end
@@ -55,6 +52,7 @@ local function IconButton(props: Props): TextButton
 
 	Flux.edit(button) {
 		BackgroundColor3 = fillColor,
+		BackgroundTransparency = fillTransparency,
 		Activated = function()
 			if not isDisabled() then
 				props.onClick()

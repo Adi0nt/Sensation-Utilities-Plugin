@@ -37,7 +37,7 @@ local function SidebarItem(props: Props): TextButton
 
 	local glyphColor = Flux.computed(function()
 		if isSelected() then
-			return C.accent
+			return C.accentText
 		elseif hovered() then
 			return C.text
 		end
@@ -46,12 +46,15 @@ local function SidebarItem(props: Props): TextButton
 
 	Flux.edit(item) {
 		BackgroundColor3 = Flux.tween(function()
-			if isSelected() then
-				return C.accentSubtle
+			-- Caelum: selected is a Chrome.Hover wash; hover is Control hover; both is Chrome.Pressed.
+			if isSelected() and hovered() then
+				return C.chromePressed
+			elseif isSelected() then
+				return C.chromeHover
 			elseif hovered() then
-				return C.surface
+				return C.controlHover
 			end
-			return C.sidebar
+			return C.chrome
 		end, Theme.tween.fast),
 
 		Activated = function()
@@ -64,7 +67,7 @@ local function SidebarItem(props: Props): TextButton
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.new(0, 0, 0.5, 0),
 			Size = Flux.tween(function()
-				return if isSelected() then UDim2.fromOffset(3, 18) else UDim2.fromOffset(3, 0)
+				return if isSelected() then UDim2.fromOffset(3, 16) else UDim2.fromOffset(3, 0)
 			end, Theme.tween.base),
 			BackgroundColor3 = C.accent,
 			Flux.corner(2),
@@ -96,10 +99,10 @@ local function SidebarItem(props: Props): TextButton
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextTruncate = Enum.TextTruncate.AtEnd,
 				TextColor3 = function()
-					return if isSelected() then C.text else glyphColor()
+					return glyphColor()
 				end,
 				FontFace = Theme.text.label.face,
-				TextSize = Theme.text.label.size + 1,
+				TextSize = Theme.text.label.size,
 			}
 		end),
 	}

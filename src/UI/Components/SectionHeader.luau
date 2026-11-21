@@ -51,14 +51,19 @@ local function SectionHeader(props: Props): Frame
 		)
 	end
 
-	return new "Frame" {
+	local header = new "Frame" {
 		Name = "SectionHeader",
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		Flux.list({ gap = if isPage then Theme.space.xs else 2 }),
+		Flux.list({ gap = Theme.space.xs }),
 		children,
 	}
+	if isPage then
+		-- A little air between the page title block and the first card.
+		Flux.edit(header) { Flux.padding({ bottom = Theme.space.xs }) }
+	end
+	return header
 end
 
 return SectionHeader

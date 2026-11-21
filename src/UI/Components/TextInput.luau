@@ -24,7 +24,7 @@ export type Props = {
 	onSubmit: (() -> ())?,
 }
 
-local FIELD_HEIGHT = Theme.size.control + 2
+local FIELD_HEIGHT = Theme.size.control
 
 local function TextInput(props: Props): Frame
 	local isDisabled = Flux.computed(function()
@@ -49,7 +49,7 @@ local function TextInput(props: Props): Frame
 		BackgroundTransparency = 1,
 		Text = Flux.model(props.value),
 		PlaceholderText = props.placeholder or "",
-		PlaceholderColor3 = C.placeholder,
+		PlaceholderColor3 = C.textTertiary,
 		ClearTextOnFocus = false,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -59,7 +59,7 @@ local function TextInput(props: Props): Frame
 			return not isDisabled()
 		end,
 		TextColor3 = function()
-			return if isDisabled() then C.textDisabled else C.text
+			return if isDisabled() then C.textTertiary else C.text
 		end,
 	}
 
@@ -67,7 +67,7 @@ local function TextInput(props: Props): Frame
 	local box = new "Frame" {
 		Name = "Box",
 		Size = UDim2.new(1, 0, 0, FIELD_HEIGHT),
-		Flux.corner(Theme.radius.md),
+		Flux.corner(Theme.radius.sm),
 		textBox,
 	}
 	local hovered = Flux.Interact.hover(box, { within = true })
@@ -78,24 +78,25 @@ local function TextInput(props: Props): Frame
 	end)
 
 	Flux.edit(box) {
-		BackgroundColor3 = Flux.tween(function()
-			if isDisabled() then
-				return C.disabledBg
-			end
-			return if hovered() or focused() then C.inputHover else C.input
-		end, Theme.tween.fast),
+		-- Inputs are sunken wells; only the outline reacts.
+		BackgroundColor3 = function()
+			return if isDisabled() then C.subtle else C.sunken
+		end,
 
 		Flux.stroke({
-			thickness = 1,
+			-- Focus is a 2 px accent ring (the stroke sits outside the field, so nothing shifts).
+			thickness = function()
+				return if focused() and not hasError() and not isDisabled() then 2 else 1
+			end,
 			color = Flux.tween(function()
 				if hasError() then
 					return C.error
 				elseif isDisabled() then
-					return C.border
+					return C.borderSubtle
 				elseif focused() then
 					return C.accent
 				elseif hovered() then
-					return C.borderHover
+					return C.borderStrong
 				end
 				return C.border
 			end, Theme.tween.fast),
@@ -161,7 +162,7 @@ local function TextInput(props: Props): Frame
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextColor3 = function()
-					return if hasError() then C.error else C.textMuted
+					return if hasError() then C.error else C.textTertiary
 				end,
 				FontFace = Theme.text.helper.face,
 				TextSize = Theme.text.helper.size,

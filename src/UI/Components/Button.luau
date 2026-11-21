@@ -23,7 +23,7 @@ export type Props = {
 	--- Hover text; typically the reason a control is disabled.
 	tooltip: Flux.Reactive<string?>?,
 	--- Stretch to the parent's width instead of hugging the label.
-	fill: boolean?,
+	fill: Flux.Reactive<boolean>?,
 }
 
 type Palette = {
@@ -33,8 +33,12 @@ type Palette = {
 	text: Color3,
 	border: Color3,
 	borderHover: Color3,
+	disabledBase: Color3,
+	disabledText: Color3,
+	disabledBorder: Color3,
 }
 
+-- Same interaction model for every variant: rest, hover, pressed, disabled.
 local palettes: { [Variant]: Palette } = {
 	primary = {
 		base = C.accent,
@@ -43,22 +47,32 @@ local palettes: { [Variant]: Palette } = {
 		text = C.onAccent,
 		border = C.accent,
 		borderHover = C.accentHover,
+		-- Caelum: a disabled primary drops to the subtle accent fill.
+		disabledBase = C.accentSubtle,
+		disabledText = C.textTertiary,
+		disabledBorder = C.accentSubtle,
 	},
 	secondary = {
-		base = C.input,
-		hover = C.inputHover,
-		pressed = C.inputPressed,
+		base = C.control,
+		hover = C.controlHover,
+		pressed = C.controlPressed,
 		text = C.text,
 		border = C.border,
-		borderHover = C.borderHover,
+		borderHover = C.borderStrong,
+		disabledBase = C.controlDisabled,
+		disabledText = C.textTertiary,
+		disabledBorder = C.borderSubtle,
 	},
 	ghost = {
-		base = C.surface,
-		hover = C.input,
-		pressed = C.inputPressed,
+		base = C.card,
+		hover = C.cardHover,
+		pressed = C.control,
 		text = C.textMuted,
-		border = C.border,
-		borderHover = C.borderHover,
+		border = C.card,
+		borderHover = C.card,
+		disabledBase = C.card,
+		disabledText = C.textTertiary,
+		disabledBorder = C.card,
 	},
 }
 
@@ -74,13 +88,19 @@ local function Button(props: Props): TextButton
 
 	local button = new "TextButton" {
 		Name = "Button",
-		Size = if props.fill then UDim2.new(1, 0, 0, Theme.size.control) else UDim2.fromOffset(0, Theme.size.control),
-		AutomaticSize = if props.fill then Enum.AutomaticSize.None else Enum.AutomaticSize.X,
+		Size = function()
+			return if Flux.read(props.fill) == true
+				then UDim2.new(1, 0, 0, Theme.size.control)
+				else UDim2.fromOffset(0, Theme.size.control)
+		end,
+		AutomaticSize = function()
+			return if Flux.read(props.fill) == true then Enum.AutomaticSize.None else Enum.AutomaticSize.X
+		end,
 		Text = props.label,
 		FontFace = Theme.text.label.face,
 		TextSize = Theme.text.label.size,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Flux.corner(Theme.radius.md),
+		Flux.corner(Theme.radius.sm),
 		Flux.sizeConstraint({ minWidth = 72 }),
 	}
 
@@ -92,7 +112,7 @@ local function Button(props: Props): TextButton
 
 	local fillColor = Flux.tween(function()
 		if isDisabled() then
-			return C.disabledBg
+			return palette.disabledBase
 		elseif pressed() then
 			return palette.pressed
 		elseif hovered() then
@@ -103,7 +123,7 @@ local function Button(props: Props): TextButton
 
 	local strokeColor = Flux.tween(function()
 		if isDisabled() then
-			return C.border
+			return palette.disabledBorder
 		elseif hovered() or pressed() then
 			return palette.borderHover
 		end
@@ -111,7 +131,7 @@ local function Button(props: Props): TextButton
 	end, Theme.tween.fast)
 
 	local textColor = Flux.computed(function()
-		return if isDisabled() then C.textDisabled else palette.text
+		return if isDisabled() then palette.disabledText else palette.text
 	end)
 
 	Flux.edit(button) {

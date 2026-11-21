@@ -55,7 +55,7 @@ local function levelColor(level: string): Color3
 	elseif level == "info" then
 		return C.accent
 	end
-	return C.border
+	return C.neutral
 end
 
 local function Header(state: State.State): Frame
@@ -69,13 +69,13 @@ local function Header(state: State.State): Frame
 	return new "Frame" {
 		Name = "Header",
 		Size = UDim2.new(1, 0, 0, Theme.size.header),
-		BackgroundColor3 = C.bg,
+		BackgroundColor3 = C.chrome,
 
 		new "Frame" {
 			Name = "Content",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.space.md }),
+			Flux.padding({ x = Theme.space.lg }),
 			Flux.list({ direction = "x", gap = 10, align = "center", justify = "between" }),
 
 			-- Brand
@@ -97,7 +97,7 @@ local function Header(state: State.State): Frame
 						Text = "S",
 						TextColor3 = C.onAccent,
 						FontFace = Theme.text.heading.face,
-						TextSize = 15,
+						TextSize = Theme.text.heading.size,
 					},
 				},
 				new "TextLabel" {
@@ -108,7 +108,7 @@ local function Header(state: State.State): Frame
 					Text = "Sensation Utilities",
 					TextColor3 = C.text,
 					FontFace = Theme.text.heading.face,
-					TextSize = Theme.text.heading.size + 1,
+					TextSize = Theme.text.heading.size,
 				},
 			},
 
@@ -141,9 +141,9 @@ local function Header(state: State.State): Frame
 					Name = "Version",
 					Size = UDim2.fromOffset(0, 22),
 					AutomaticSize = Enum.AutomaticSize.X,
-					BackgroundColor3 = C.input,
+					BackgroundColor3 = C.control,
 					Text = state.commit,
-					TextColor3 = C.textMuted,
+					TextColor3 = C.textTertiary,
 					FontFace = Theme.text.mono.face,
 					TextSize = Theme.text.mono.size,
 					Flux.corner(Theme.radius.sm),
@@ -151,22 +151,30 @@ local function Header(state: State.State): Frame
 				},
 			},
 		},
-
-		-- Bottom divider.
-		new "Frame" {
-			Name = "Divider",
-			AnchorPoint = Vector2.new(0, 1),
-			Position = UDim2.fromScale(0, 1),
-			Size = UDim2.new(1, 0, 0, 1),
-			BackgroundColor3 = C.border,
-		},
 	}
 end
 
 local function Sidebar(controller: Controller.Controller): Frame
 	local state, actions = controller.state, controller.actions
 
-	local items: { Instance } = {}
+	-- A titled group, like Caelum's sidebar sections; the label hides in the icon rail.
+	local items: { any } = {
+		Flux.show(function()
+			return not state.compactNav()
+		end, function()
+			return new "TextLabel" {
+				Name = "GroupLabel",
+				Size = UDim2.new(1, 0, 0, 24),
+				BackgroundTransparency = 1,
+				Text = "Tools",
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = C.textTertiary,
+				FontFace = Theme.text.overline.face,
+				TextSize = Theme.text.overline.size,
+				Flux.padding({ left = Theme.space.md }),
+			}
+		end),
+	}
 	for _, entry in NAV do
 		table.insert(
 			items,
@@ -189,7 +197,7 @@ local function Sidebar(controller: Controller.Controller): Frame
 		Size = Flux.tween(function()
 			return UDim2.new(0, if state.compactNav() then Theme.size.sidebarCompact else Theme.size.sidebar, 1, 0)
 		end, Theme.tween.base),
-		BackgroundColor3 = C.sidebar,
+		BackgroundColor3 = C.chrome,
 		ClipsDescendants = true,
 
 		new "Frame" {
@@ -199,15 +207,6 @@ local function Sidebar(controller: Controller.Controller): Frame
 			Flux.padding(Theme.space.sm),
 			Flux.list({ gap = Theme.space.xs }),
 			items,
-		},
-
-		-- Right divider.
-		new "Frame" {
-			Name = "Divider",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(1, 0),
-			Size = UDim2.new(0, 1, 1, 0),
-			BackgroundColor3 = C.border,
 		},
 	}
 end
@@ -223,7 +222,7 @@ local function PageArea(controller: Controller.Controller): ScrollingFrame
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 6,
-		ScrollBarImageColor3 = C.border,
+		ScrollBarImageColor3 = C.borderStrong,
 		Flux.flex(),
 
 		new "Frame" {
@@ -231,7 +230,7 @@ local function PageArea(controller: Controller.Controller): ScrollingFrame
 			Size = UDim2.fromScale(1, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.space.md, top = Theme.space.sm, bottom = Theme.space.md }),
+			Flux.padding({ x = Theme.size.pagePadding, top = Theme.space.lg, bottom = Theme.space.xl }),
 
 			-- Pages stop growing instead of stretching controls across a wide dock.
 			new "Frame" {
@@ -297,7 +296,7 @@ local function mount(config: Config): App
 			return new "Frame" {
 				Name = "SensationUtilities",
 				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = C.bg,
+				BackgroundColor3 = C.chrome,
 				ClipsDescendants = true,
 
 				new "Frame" {
@@ -317,10 +316,18 @@ local function mount(config: Config): App
 
 						Sidebar(controller),
 
+						-- The content layer: Caelum insets it on the chrome with one rounded top-left corner and a 1 px edge.
 						new "Frame" {
 							Name = "Main",
 							Size = UDim2.fromScale(0, 1),
-							BackgroundTransparency = 1,
+							BackgroundColor3 = C.canvas,
+							Flux.corner({
+								topLeft = Theme.radius.md,
+								topRight = 0,
+								bottomLeft = 0,
+								bottomRight = 0,
+							}),
+							Flux.stroke({ thickness = 1, color = C.contentBorder }),
 							Flux.flex(),
 							Flux.list({ gap = 0 }),
 
@@ -328,7 +335,7 @@ local function mount(config: Config): App
 							new "Frame" {
 								Name = "SelectionDivider",
 								Size = UDim2.new(1, 0, 0, 1),
-								BackgroundColor3 = C.border,
+								BackgroundColor3 = C.borderSubtle,
 							},
 							PageArea(controller),
 							StatusMessage({ line = state.statusLine, onDismiss = actions.dismissStatus }),

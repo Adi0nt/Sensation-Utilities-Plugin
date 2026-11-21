@@ -17,11 +17,11 @@ local CARD_GAP = Theme.space.md
 local RIGS: { { rig: Types.RigType, description: string } } = {
 	{
 		rig = "R6",
-		description = "The classic six-part rig. Placed in StarterPlayer as StarterCharacter.",
+		description = "The classic six-part rig.",
 	},
 	{
 		rig = "R15",
-		description = "The modern fifteen-part rig with jointed limbs. Placed in StarterPlayer as StarterCharacter.",
+		description = "The modern fifteen-part rig with jointed limbs.",
 	},
 }
 
@@ -43,6 +43,7 @@ local function StudioPage(controller: Controller.Controller): Frame
 			Panel({
 				title = `{rig} StarterCharacter`,
 				description = entry.description,
+				icon = "studio",
 				size = cardSize,
 				children = {
 					Button({
@@ -75,7 +76,7 @@ local function StudioPage(controller: Controller.Controller): Frame
 		SectionHeader({
 			level = "page",
 			title = "Studio",
-			description = "Set up the StarterCharacter that every player spawns with.",
+			description = "Set up the StarterCharacter that every player spawns with. Rigs are placed in StarterPlayer.",
 		}),
 
 		new "Frame" {

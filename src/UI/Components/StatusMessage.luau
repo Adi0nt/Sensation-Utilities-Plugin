@@ -36,7 +36,7 @@ local function levelColor(level: string): Color3
 	elseif level == "info" then
 		return C.accent
 	end
-	return C.border
+	return C.neutral
 end
 
 local function levelBackground(level: string): Color3
@@ -47,7 +47,7 @@ local function levelBackground(level: string): Color3
 	elseif level == "error" then
 		return C.errorSubtle
 	end
-	return C.sidebar
+	return C.canvas
 end
 
 local function StatusMessage(props: Props): Frame
@@ -76,7 +76,7 @@ local function StatusMessage(props: Props): Frame
 		new "Frame" {
 			Name = "Divider",
 			Size = UDim2.new(1, 0, 0, 1),
-			BackgroundColor3 = C.border,
+			BackgroundColor3 = C.borderSubtle,
 		},
 
 		new "Frame" {
@@ -84,7 +84,7 @@ local function StatusMessage(props: Props): Frame
 			Size = UDim2.fromScale(1, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.space.md, y = 10 }),
+			Flux.padding({ x = Theme.size.pagePadding, y = 8 }),
 			Flux.list({ direction = "x", gap = 10, align = "center" }),
 
 			-- Dot or spinner.

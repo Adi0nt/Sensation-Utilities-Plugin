@@ -61,10 +61,10 @@ function Tooltip.attach(target: GuiObject, text: Flux.Reactive<string?>, hovered
 						local y = targetPosition().Y + targetSize().Y + GAP
 						return UDim2.fromOffset(x - overlayPosition().X, y - overlayPosition().Y)
 					end,
-					BackgroundColor3 = Theme.color.input,
+					BackgroundColor3 = Theme.color.popup,
 					ZIndex = 50,
 					Flux.corner(Theme.radius.sm),
-					Flux.stroke({ thickness = 1, color = Theme.color.border }),
+					Flux.stroke({ thickness = 1, color = Theme.color.borderStrong }),
 					Flux.padding({ x = 10, y = 6 }),
 					Flux.sizeConstraint({ maxWidth = 240 }),
 

@@ -32,7 +32,7 @@ local function Segment<T>(option: Option<T>, props: Props<T>): TextButton
 		Text = option.label,
 		FontFace = Theme.text.label.face,
 		TextSize = Theme.text.label.size,
-		Flux.corner(Theme.radius.sm),
+		Flux.corner(Theme.radius.xs),
 		Flux.flex(),
 	}
 
@@ -40,17 +40,18 @@ local function Segment<T>(option: Option<T>, props: Props<T>): TextButton
 
 	Flux.edit(segment) {
 		BackgroundColor3 = Flux.tween(function()
+			-- Caelum: the selected segment is raised on Control; hover is a quiet wash. Never the same fill.
 			if isSelected() then
-				return C.accentSubtle
+				return C.control
 			elseif hovered() and not isDisabled() then
-				return C.inputHover
+				return C.card
 			end
-			return C.input
+			return C.sunken
 		end, Theme.tween.fast),
 
 		TextColor3 = function()
 			if isDisabled() then
-				return C.textDisabled
+				return C.textTertiary
 			elseif isSelected() then
 				return C.text
 			elseif hovered() then
@@ -68,7 +69,7 @@ local function Segment<T>(option: Option<T>, props: Props<T>): TextButton
 		Flux.stroke({
 			thickness = 1,
 			color = Flux.tween(function()
-				return if isSelected() then C.accentBorder else C.input
+				return if isSelected() then C.borderStrong else C.sunken
 			end, Theme.tween.fast),
 		}),
 	}
@@ -85,11 +86,11 @@ local function SegmentedControl<T>(props: Props<T>): Frame
 	local track = new "Frame" {
 		Name = "Track",
 		Size = UDim2.new(1, 0, 0, HEIGHT),
-		BackgroundColor3 = C.input,
-		Flux.corner(Theme.radius.md),
+		BackgroundColor3 = C.sunken,
+		Flux.corner(Theme.radius.sm),
 		Flux.stroke({ thickness = 1, color = C.border }),
-		Flux.padding(3),
-		Flux.list({ direction = "x", gap = 3 }),
+		Flux.padding(2),
+		Flux.list({ direction = "x", gap = 2 }),
 		segments,
 	}
 

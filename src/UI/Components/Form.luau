@@ -18,7 +18,7 @@ function Form.Note(text: Flux.Reactive<string>): TextLabel
 		Text = text,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = Theme.color.textMuted,
+		TextColor3 = Theme.color.textTertiary,
 		FontFace = Theme.text.helper.face,
 		TextSize = Theme.text.helper.size,
 	}

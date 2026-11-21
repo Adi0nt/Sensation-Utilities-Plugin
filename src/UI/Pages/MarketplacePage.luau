@@ -54,6 +54,7 @@ local function MarketplacePage(controller: Controller.Controller): Frame
 			ButtonRow({
 				Button({
 					label = "Insert Latest",
+					fill = state.stackCards,
 					variant = "primary",
 					onClick = actions.insertLatest,
 					loading = isRunning("latest"),
@@ -64,6 +65,7 @@ local function MarketplacePage(controller: Controller.Controller): Frame
 				}),
 				Button({
 					label = "Insert Specific Version",
+					fill = state.stackCards,
 					variant = "secondary",
 					onClick = actions.insertVersion,
 					loading = isRunning("version"),

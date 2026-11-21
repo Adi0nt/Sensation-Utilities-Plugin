@@ -69,7 +69,7 @@ local function ModulesPage(controller: Controller.Controller): Frame
 
 				Button({
 					label = "Reload",
-					variant = "ghost",
+					variant = "secondary",
 					onClick = actions.reloadMethods,
 					loading = isRunning("reload"),
 					disabled = function()

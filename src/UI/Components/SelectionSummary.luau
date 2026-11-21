@@ -38,7 +38,7 @@ local function SelectionSummary(props: Props): Frame
 				BackgroundTransparency = 1,
 				Text = props.caption,
 				TextXAlignment = Enum.TextXAlignment.Left,
-				TextColor3 = C.textMuted,
+				TextColor3 = C.textTertiary,
 				FontFace = Theme.text.helper.face,
 				TextSize = Theme.text.helper.size,
 			}
@@ -73,7 +73,7 @@ local function SelectionSummary(props: Props): Frame
 			end,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
-			TextColor3 = C.textMuted,
+			TextColor3 = C.textTertiary,
 			FontFace = Theme.text.helper.face,
 			TextSize = Theme.text.helper.size,
 		}
@@ -85,8 +85,9 @@ local function SelectionSummary(props: Props): Frame
 	local root = new "Frame" {
 		Name = "SelectionSummary",
 		Size = UDim2.new(1, 0, 0, contentHeight + verticalPadding * 2),
-		BackgroundColor3 = if isBar then C.sidebar else C.input,
-		Flux.padding({ x = if isBar then Theme.space.md else 12, y = verticalPadding }),
+		BackgroundColor3 = C.sunken,
+		BackgroundTransparency = if isBar then 1 else 0,
+		Flux.padding({ x = if isBar then Theme.size.pagePadding else 12, y = verticalPadding }),
 
 		-- Selection indicator dot: accent when something is selected.
 		new "Frame" {
@@ -95,7 +96,7 @@ local function SelectionSummary(props: Props): Frame
 			Position = UDim2.new(0, 0, 0.5, 0),
 			Size = UDim2.fromOffset(8, 8),
 			BackgroundColor3 = Flux.tween(function()
-				return if hasSelection() then C.accent else C.border
+				return if hasSelection() then C.accent else C.neutral
 			end, Theme.tween.base),
 			Flux.corner(UDim.new(0.5, 0)),
 		},
@@ -111,7 +112,10 @@ local function SelectionSummary(props: Props): Frame
 	}
 
 	if not isBar then
-		Flux.edit(root) { Flux.corner(Theme.radius.md) }
+		Flux.edit(root) {
+			Flux.corner(Theme.radius.sm),
+			Flux.stroke({ thickness = 1, color = C.border }),
+		}
 	end
 	return root
 end
