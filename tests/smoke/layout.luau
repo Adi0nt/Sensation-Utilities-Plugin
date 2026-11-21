@@ -67,11 +67,11 @@ local function verify(vw, vh, page, selectionKind)
 	if math.abs((py + ph) - sty) > 1 then flag(ctx, `page area should end where the status bar starts ({sty}), ends at {py + ph}`) end
 
 	-- Header contents fit: logo, selection summary and status/version side by side, inside the header
-	local logo, selection = find("Logo"), find("Selection")
+	local logo, selection = find("Logo"), find("SelectionSummary")
 	local bx, _, bw = rect(logo); local slx, _, slw = rect(selection)
 	checks += 1
-	if bx + bw > slx + 1 then flag(ctx, `header logo ({bx + bw}) overlaps the selection ({slx})`) end
-	if slx + slw > vw + 0.5 then flag(ctx, `header selection runs past the window ({slx + slw} > {vw})`) end
+	if bx + bw > slx + 1 then flag(ctx, `header logo ({bx + bw}) overlaps the selection chip ({slx})`) end
+	if slx + slw > vw + 0.5 then flag(ctx, `header selection chip runs past the window ({slx + slw} > {vw})`) end
 
 	-- Sidebar footer: inside the sidebar, below the last nav item, and everything in it fits the sidebar's width
 	local footer, lastNav = find("Footer"), find("Nav_Studio")

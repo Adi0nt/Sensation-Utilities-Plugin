@@ -61,7 +61,7 @@ local function Header(state: State.State): Frame
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Flux.padding({ x = RAIL_CENTRE - LOGO_SIZE / 2 }),
-			Flux.list({ direction = "x", gap = 12, align = "center" }),
+			Flux.list({ direction = "x", gap = 12, align = "center", justify = "between" }),
 
 			-- Logo: the same icon as the toolbar button.
 			new "ImageLabel" {
@@ -73,14 +73,16 @@ local function Header(state: State.State): Frame
 				Flux.corner(Theme.radius.sm),
 			},
 
-			-- What is selected in Explorer, in the bar itself instead of a second strip below it.
-			new "Frame" {
-				Name = "Selection",
-				Size = UDim2.fromScale(0, 1),
-				BackgroundTransparency = 1,
-				Flux.flex(),
-				SelectionSummary({ summary = state.summary, variant = "header" }),
-			},
+			-- What is selected in Explorer: context for the actions, so it sits at the right of the bar. It may not grow
+			-- past the room between the logo and the window edge, so a long name truncates.
+			SelectionSummary({
+				summary = state.summary,
+				variant = "chip",
+				maxWidth = function()
+					local room = state.width() - (RAIL_CENTRE - LOGO_SIZE / 2) * 2 - LOGO_SIZE - 12
+					return if room > 0 then math.min(room, 320) else 320
+				end,
+			}),
 		},
 	}
 end

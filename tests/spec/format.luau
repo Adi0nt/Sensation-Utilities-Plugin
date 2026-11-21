@@ -41,6 +41,16 @@ return {
 			eq(summary.detail, "Part ×3 · Script ×2")
 		end)
 
+		test("one-line form for the chip", function()
+			eq(Format.oneLine(Format.summarize({})), "No selection")
+			eq(Format.oneLine(Format.summarize({ { name = "Handler", className = "Script" } })), "Handler · Script")
+			eq(Format.oneLine(Format.summarize({ { name = "ModuleScript", className = "ModuleScript" } })), "ModuleScript")
+			eq(
+				Format.oneLine(Format.summarize(items({ "Part", "Part", "Script" }))),
+				"3 objects selected · Part ×2 · Script"
+			)
+		end)
+
 		test("breakdown is capped with a +N more suffix", function()
 			eq(Format.classBreakdown(items({ "A", "B", "C", "D" })), "A · B · +2 more")
 		end)

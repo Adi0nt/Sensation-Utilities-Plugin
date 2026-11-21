@@ -61,4 +61,16 @@ function Format.summarize(items: { Item }): Summary
 	}
 end
 
+--- One line for the compact chip: "No selection", "MainModule · ModuleScript", "5 objects selected · Part ×3 · Script ×2".
+--- When an object's name is its class name the class is not repeated.
+function Format.oneLine(summary: Summary): string
+	if summary.kind == "none" then
+		return summary.title
+	end
+	if summary.detail == "" or summary.detail == summary.title then
+		return summary.title
+	end
+	return `{summary.title} · {summary.detail}`
+end
+
 return Format
