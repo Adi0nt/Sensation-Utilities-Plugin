@@ -281,50 +281,83 @@ maid = maid.new()
 instance_newindex = rawLib.instance_newindex
 
 Iris = irisLib.Init(coreGui)
+local mutedColor = Color3.fromRGB(140, 148, 162)
 ;(Iris :: any).TextDisabled = function(args: { string })
 	local text = args[1] or ""
-	Iris.Text({ text, false, Color3.fromRGB(150, 150, 150) })
+	Iris.Text({ text, false, mutedColor })
 end
-
-local function textDisabled(text: string)
-	Iris.Text({ text, false, Color3.fromRGB(150, 150, 150) })
-end
-
-local hue = 208 / 360
-local accentLight = Color3.fromHSV(hue, 204 / 255, 250 / 255)
-local accentDark = Color3.fromHSV(hue, 214 / 255, 188 / 255)
 
 Iris.UpdateGlobalConfig({
-	ItemSpacing = Vector2.new(8, 6),
+	-- Typography & Text
+	TextFont = Font.fromEnum(Enum.Font.GothamMedium),
+	TextSize = 14,
+	TextColor = Color3.fromRGB(240, 243, 248),
+	TextDisabledColor = mutedColor,
+
+	-- Window & Title Bar
+	TitleBgColor = Color3.fromRGB(20, 23, 30),
+	TitleBgActiveColor = Color3.fromRGB(26, 31, 42),
+	TitleBgCollapsedColor = Color3.fromRGB(16, 18, 24),
+	WindowBgColor = Color3.fromRGB(18, 21, 28),
+	WindowBgTransparency = 0.0,
+
+	-- Frames, Inputs & Cards
+	FrameBgColor = Color3.fromRGB(26, 31, 42),
+	FrameBgHoveredColor = Color3.fromRGB(34, 42, 58),
+	FrameBgActiveColor = Color3.fromRGB(42, 54, 76),
+
+	-- Buttons
+	ButtonColor = Color3.fromRGB(34, 42, 58),
+	ButtonTransparency = 0.0,
+	ButtonHoveredColor = Color3.fromRGB(46, 58, 80),
+	ButtonHoveredTransparency = 0.0,
+	ButtonActiveColor = Color3.fromRGB(56, 115, 205),
+	ButtonActiveTransparency = 0.0,
+
+	-- Collapsing Headers
+	HeaderColor = Color3.fromRGB(26, 30, 40),
+	HeaderTransparency = 0.0,
+	HeaderHoveredColor = Color3.fromRGB(34, 40, 54),
+	HeaderHoveredTransparency = 0.0,
+	HeaderActiveColor = Color3.fromRGB(42, 50, 68),
+	HeaderActiveTransparency = 0.0,
+
+	-- Tabs
+	TabColor = Color3.fromRGB(22, 25, 34),
+	TabTransparency = 0.0,
+	TabHoveredColor = Color3.fromRGB(32, 38, 52),
+	TabHoveredTransparency = 0.0,
+	TabActiveColor = Color3.fromRGB(40, 50, 70),
+	TabActiveTransparency = 0.0,
+
+	-- Borders & Outlines
+	BorderColor = Color3.fromRGB(48, 56, 74),
+	BorderTransparency = 0.4,
+	BorderActiveColor = Color3.fromRGB(65, 85, 120),
+	BorderActiveTransparency = 0.3,
+
+	-- Separators
+	SeparatorColor = Color3.fromRGB(40, 48, 64),
+	SeparatorTransparency = 0.4,
+
+	-- Corner Rounding & Border Sizes
+	FrameRounding = 5,
+	GrabRounding = 4,
+	WindowRounding = 6,
+	PopupRounding = 5,
+
+	FrameBorderSize = 1,
+	WindowBorderSize = 1,
+	PopupBorderSize = 1,
+
+	-- Spacing & Padding
+	ItemSpacing = Vector2.new(8, 7),
 	ItemInnerSpacing = Vector2.new(6, 4),
-	FramePadding = Vector2.new(6, 4),
-
-	TitleBgColor = Color3.fromRGB(18, 22, 28),
-	TitleBgActiveColor = accentDark,
-	WindowBgColor = Color3.fromRGB(22, 25, 32),
-	WindowBgTransparency = 0.02,
-
-	FrameBgColor = Color3.fromRGB(30, 36, 46),
-	FrameBgHoveredColor = Color3.fromRGB(38, 48, 62),
-	FrameBgActiveColor = accentDark,
-
-	ButtonColor = Color3.fromRGB(42, 68, 102),
-	ButtonHoveredColor = Color3.fromRGB(56, 92, 138),
-	ButtonActiveColor = accentLight,
-
-	HeaderColor = Color3.fromRGB(35, 45, 60),
-	HeaderHoveredColor = Color3.fromRGB(48, 64, 86),
-	HeaderActiveColor = accentDark,
-
-	TabColor = Color3.fromRGB(26, 33, 44),
-	TabHoveredColor = Color3.fromRGB(42, 58, 80),
-	TabActiveColor = Color3.fromRGB(46, 76, 116),
-
-	SeparatorColor = Color3.fromRGB(55, 65, 80),
-	BorderColor = Color3.fromRGB(60, 72, 90),
+	FramePadding = Vector2.new(8, 5),
+	WindowPadding = Vector2.new(12, 10),
 })
 
-local windowSize = Iris.State(Vector2.new(460, 420))
+local windowSize = Iris.State(Vector2.new(460, 440))
 local isWindowVisible = Iris.State(false)
 
 methodState = Iris.State("")
@@ -347,17 +380,13 @@ Iris:Connect(function()
 	do
 		local currentSelection = selection:Get()
 		local selCount = #currentSelection
-		Iris.SameLine()
-		do
-			if selCount == 0 then
-				textDisabled("Selection: None (select objects in Explorer)")
-			elseif selCount == 1 then
-				Iris.Text({ `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]` })
-			else
-				Iris.Text({ `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)` })
-			end
+		if selCount == 0 then
+			Iris.Text({ "Selection: None (select objects in Explorer)", false, mutedColor })
+		elseif selCount == 1 then
+			Iris.Text({ `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]` })
+		else
+			Iris.Text({ `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)` })
 		end
-		Iris.End()
 
 		Iris.Separator()
 
@@ -365,7 +394,9 @@ Iris:Connect(function()
 		do
 			Iris.Tab({ "Module" })
 			do
-				Iris.CollapsingHeader({ "Bypass" })
+				Iris.PushId("ModuleTab")
+
+				Iris.CollapsingHeader({ "Bypass", true })
 				do
 					local activeMethod = getActiveMethod()
 					local methodCount = 0
@@ -384,7 +415,7 @@ Iris:Connect(function()
 					elseif methodCount == 1 and activeMethod then
 						Iris.Text({ `Method: {activeMethod.Name}` })
 					else
-						textDisabled("No methods loaded")
+						Iris.Text({ "No methods loaded", false, mutedColor })
 					end
 
 					Iris.Combo({ "Mode" }, { index = modeState })
@@ -434,9 +465,9 @@ Iris:Connect(function()
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Sandbox" })
+				Iris.CollapsingHeader({ "Sandbox", false })
 				do
-					textDisabled("Toggle SecurityCapabilities and sandboxing flags")
+					Iris.Text({ "Toggle SecurityCapabilities and sandboxing flags", false, mutedColor })
 					Iris.SameLine()
 					do
 						if Iris.Button({ "Sandbox" }).clicked() then
@@ -481,9 +512,9 @@ Iris:Connect(function()
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Cleaners" })
+				Iris.CollapsingHeader({ "Cleaners", false })
 				do
-					textDisabled("Clear broken or private SoundId references on unloaded sounds")
+					Iris.Text({ "Clear broken or private SoundId references on unloaded sounds", false, mutedColor })
 					if Iris.Button({ "Remove Private AssetIds" }).clicked() then
 						local selected = selection:Get()
 						if #selected == 0 then
@@ -508,7 +539,7 @@ Iris:Connect(function()
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Presets" })
+				Iris.CollapsingHeader({ "Presets", false })
 				do
 					Iris.Combo({ "Preset" }, { index = presetState })
 					do
@@ -539,12 +570,16 @@ Iris:Connect(function()
 					end
 				end
 				Iris.End()
+
+				Iris.PopId()
 			end
 			Iris.End()
 
 			Iris.Tab({ "Marketplace" })
 			do
-				Iris.CollapsingHeader({ "Insert Asset" })
+				Iris.PushId("MarketplaceTab")
+
+				Iris.CollapsingHeader({ "Insert Asset", true })
 				do
 					Iris.InputNum({ "Asset ID", 1, 0, nil, "%d" }, { number = assetIdState })
 					Iris.InputNum({ "Version", 1, 0, nil, "%d" }, { number = assetVersionState })
@@ -596,13 +631,13 @@ Iris:Connect(function()
 				end
 				Iris.End()
 
-				Iris.CollapsingHeader({ "Upload & Export" })
+				Iris.CollapsingHeader({ "Upload & Export", true })
 				do
-					textDisabled("Publish or save selected models & assets")
+					Iris.Text({ "Publish or save selected models & assets", false, mutedColor })
 
 					local selected = selection:Get()
 					if #selected == 0 then
-						textDisabled("Target: No selection")
+						Iris.Text({ "Target: No selection", false, mutedColor })
 					elseif #selected == 1 then
 						Iris.Text({ `Target: "{selected[1].Name}" ({selected[1].ClassName})` })
 					else
@@ -647,14 +682,18 @@ Iris:Connect(function()
 					Iris.End()
 				end
 				Iris.End()
+
+				Iris.PopId()
 			end
 			Iris.End()
 
 			Iris.Tab({ "Studio" })
 			do
-				Iris.CollapsingHeader({ "Character Spawners" })
+				Iris.PushId("StudioTab")
+
+				Iris.CollapsingHeader({ "Character Spawners", true })
 				do
-					textDisabled("Spawn rigged StarterCharacter model into StarterPlayer")
+					Iris.Text({ "Spawn rigged StarterCharacter model into StarterPlayer", false, mutedColor })
 					Iris.SameLine()
 					do
 						if Iris.Button({ "Spawn R6" }).clicked() then
@@ -680,6 +719,8 @@ Iris:Connect(function()
 					Iris.End()
 				end
 				Iris.End()
+
+				Iris.PopId()
 			end
 			Iris.End()
 		end
