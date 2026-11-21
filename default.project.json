@@ -1,0 +1,21 @@
+{
+	"name": "SensationUI",
+	"tree": {
+		"$className": "Folder",
+		"Flux": {
+			"$path": "vendor/flux/src"
+		},
+		"Core": {
+			"$path": "src/Core"
+		},
+		"UI": {
+			"$path": "src/UI"
+		},
+		"Licenses": {
+			"$className": "Folder",
+			"Flux": {
+				"$path": "vendor/flux/LICENSE.txt"
+			}
+		}
+	}
+}
