@@ -281,6 +281,14 @@ maid = maid.new()
 instance_newindex = rawLib.instance_newindex
 
 Iris = irisLib.Init(coreGui)
+;(Iris :: any).TextDisabled = function(args: { string })
+	local text = args[1] or ""
+	Iris.Text({ text, false, Color3.fromRGB(150, 150, 150) })
+end
+
+local function textDisabled(text: string)
+	Iris.Text({ text, false, Color3.fromRGB(150, 150, 150) })
+end
 
 local hue = 208 / 360
 local accentLight = Color3.fromHSV(hue, 204 / 255, 250 / 255)
@@ -342,7 +350,7 @@ Iris:Connect(function()
 		Iris.SameLine()
 		do
 			if selCount == 0 then
-				Iris.TextDisabled({ "Selection: None (select objects in Explorer)" })
+				textDisabled("Selection: None (select objects in Explorer)")
 			elseif selCount == 1 then
 				Iris.Text({ `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]` })
 			else
@@ -376,7 +384,7 @@ Iris:Connect(function()
 					elseif methodCount == 1 and activeMethod then
 						Iris.Text({ `Method: {activeMethod.Name}` })
 					else
-						Iris.TextDisabled({ "No methods loaded" })
+						textDisabled("No methods loaded")
 					end
 
 					Iris.Combo({ "Mode" }, { index = modeState })
@@ -428,7 +436,7 @@ Iris:Connect(function()
 
 				Iris.CollapsingHeader({ "Sandbox" })
 				do
-					Iris.TextDisabled({ "Toggle SecurityCapabilities and sandboxing flags" })
+					textDisabled("Toggle SecurityCapabilities and sandboxing flags")
 					Iris.SameLine()
 					do
 						if Iris.Button({ "Sandbox" }).clicked() then
@@ -475,7 +483,7 @@ Iris:Connect(function()
 
 				Iris.CollapsingHeader({ "Cleaners" })
 				do
-					Iris.TextDisabled({ "Clear broken or private SoundId references on unloaded sounds" })
+					textDisabled("Clear broken or private SoundId references on unloaded sounds")
 					if Iris.Button({ "Remove Private AssetIds" }).clicked() then
 						local selected = selection:Get()
 						if #selected == 0 then
@@ -590,11 +598,11 @@ Iris:Connect(function()
 
 				Iris.CollapsingHeader({ "Upload & Export" })
 				do
-					Iris.TextDisabled({ "Publish or save selected models & assets" })
+					textDisabled("Publish or save selected models & assets")
 
 					local selected = selection:Get()
 					if #selected == 0 then
-						Iris.TextDisabled({ "Target: No selection" })
+						textDisabled("Target: No selection")
 					elseif #selected == 1 then
 						Iris.Text({ `Target: "{selected[1].Name}" ({selected[1].ClassName})` })
 					else
@@ -646,7 +654,7 @@ Iris:Connect(function()
 			do
 				Iris.CollapsingHeader({ "Character Spawners" })
 				do
-					Iris.TextDisabled({ "Spawn rigged StarterCharacter model into StarterPlayer" })
+					textDisabled("Spawn rigged StarterCharacter model into StarterPlayer")
 					Iris.SameLine()
 					do
 						if Iris.Button({ "Spawn R6" }).clicked() then
