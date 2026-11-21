@@ -8,7 +8,7 @@ if RUN_SERVICE:IsRunning() or RUN_SERVICE:IsRunMode() then
 	return
 end
 
-local URL = "https://raw.githubusercontent.com/Adi0nt/Sensation-Utilities-Plugin/refs/heads/main/plugin.luau"
+local URL = "https://raw.githubusercontent.com/Adi0nt/Sensation-Utilities-Plugin/refs/heads/main/plugin.luau?t=" .. os.time()
 local RESPONSE = HTTP_SERVICE:GetAsync(URL, true)
 
 LOADSTRING(RESPONSE)()
