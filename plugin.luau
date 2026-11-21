@@ -288,6 +288,8 @@ local mutedColor = Color3.fromRGB(140, 148, 162)
 end
 
 Iris.UpdateGlobalConfig({
+	RichText = true,
+
 	-- Typography & Text
 	TextFont = Font.fromEnum(Enum.Font.GothamMedium),
 	TextSize = 14,
@@ -357,6 +359,31 @@ Iris.UpdateGlobalConfig({
 	WindowPadding = Vector2.new(12, 10),
 })
 
+local function escapeRichText(str: string): string
+	return (string.gsub(string.gsub(string.gsub(str, "&", "&amp;"), "<", "&lt;"), ">", "&gt;"))
+end
+
+local currentCommit = "c31fc51"
+
+task.spawn(function()
+	local success, response = pcall(function()
+		return httpService:RequestAsync({
+			Url = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/commit/main.patch",
+			Method = "GET",
+			Headers = {
+				["User-Agent"] = "RobloxStudio",
+			},
+		})
+	end)
+	if success and response and response.Success and response.Body then
+		local firstLine = string.split(response.Body, "\n")[1]
+		local match = string.match(firstLine, "^From (%x%x%x%x%x%x%x)")
+		if match then
+			currentCommit = match
+		end
+	end
+end)
+
 local windowSize = Iris.State(Vector2.new(460, 440))
 local isWindowVisible = Iris.State(false)
 
@@ -376,14 +403,17 @@ Iris:Connect(function()
 
 	mode = modeState.value
 
-	Iris.Window({ "Sensation Utilities", false, false, false, false }, { size = windowSize, isOpened = isWindowVisible })
+	local windowTitle = `Sensation Utilities <font color="#8c94a2">- {currentCommit}</font>`
+	Iris.Window({ windowTitle, false, false, false, false }, { size = windowSize, isOpened = isWindowVisible })
 	do
 		local currentSelection = selection:Get()
 		local selCount = #currentSelection
+		local selName = if selCount >= 1 then escapeRichText(currentSelection[1].Name) else ""
+		local selClass = if selCount >= 1 then currentSelection[1].ClassName else ""
 		local selectionText = if selCount == 0
 			then "Selection: None (select objects in Explorer)"
-			elseif selCount == 1 then `Selection: "{currentSelection[1].Name}" [{currentSelection[1].ClassName}]`
-			else `Selection: {selCount} objects ("{currentSelection[1].Name}", ...)`
+			elseif selCount == 1 then `Selection: "{selName}" [{selClass}]`
+			else `Selection: {selCount} objects ("{selName}", ...)`
 		local selectionColor = if selCount == 0 then mutedColor else nil
 
 		Iris.Text({ selectionText, false, selectionColor })
@@ -638,10 +668,12 @@ Iris:Connect(function()
 					Iris.Text({ "Publish or save selected models & assets", false, mutedColor })
 
 					local selected = selection:Get()
+					local targetName = if #selected >= 1 then escapeRichText(selected[1].Name) else ""
+					local targetClass = if #selected >= 1 then selected[1].ClassName else ""
 					local targetText = if #selected == 0
 						then "Target: No selection"
-						elseif #selected == 1 then `Target: "{selected[1].Name}" ({selected[1].ClassName})`
-						else `Target: {#selected} objects ("{selected[1].Name}", ...)`
+						elseif #selected == 1 then `Target: "{targetName}" ({targetClass})`
+						else `Target: {#selected} objects ("{targetName}", ...)`
 					local targetColor = if #selected == 0 then mutedColor else nil
 
 					Iris.Text({ targetText, false, targetColor })
