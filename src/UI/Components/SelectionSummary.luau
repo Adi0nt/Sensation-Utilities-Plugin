@@ -85,8 +85,7 @@ local function SelectionSummary(props: Props): Frame
 	local root = new "Frame" {
 		Name = "SelectionSummary",
 		Size = UDim2.new(1, 0, 0, contentHeight + verticalPadding * 2),
-		BackgroundColor3 = C.input,
-		BackgroundTransparency = if isBar then 1 else 0,
+		BackgroundColor3 = if isBar then C.sidebar else C.input,
 		Flux.padding({ x = if isBar then Theme.space.md else 12, y = verticalPadding }),
 
 		-- Selection indicator dot: accent when something is selected.

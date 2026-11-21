@@ -325,6 +325,11 @@ local function mount(config: Config): App
 							Flux.list({ gap = 0 }),
 
 							SelectionSummary({ summary = state.summary, variant = "bar" }),
+							new "Frame" {
+								Name = "SelectionDivider",
+								Size = UDim2.new(1, 0, 0, 1),
+								BackgroundColor3 = C.border,
+							},
 							PageArea(controller),
 							StatusMessage({ line = state.statusLine, onDismiss = actions.dismissStatus }),
 						},

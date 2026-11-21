@@ -57,8 +57,8 @@ local palettes: { [Variant]: Palette } = {
 		hover = C.input,
 		pressed = C.inputPressed,
 		text = C.textMuted,
-		border = C.surface,
-		borderHover = C.border,
+		border = C.border,
+		borderHover = C.borderHover,
 	},
 }
 

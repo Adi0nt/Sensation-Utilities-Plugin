@@ -128,7 +128,7 @@ local function ModulesPage(controller: Controller.Controller): Frame
 			ButtonRow({
 				Button({
 					label = "Sandbox",
-					variant = "primary",
+					variant = "secondary",
 					onClick = actions.sandbox,
 					loading = isRunning("sandbox"),
 					disabled = function()
@@ -158,7 +158,7 @@ local function ModulesPage(controller: Controller.Controller): Frame
 			ButtonRow({
 				Button({
 					label = "Clean Selected Sounds",
-					variant = "primary",
+					variant = "secondary",
 					onClick = actions.cleanSounds,
 					loading = isRunning("clean"),
 					disabled = function()
@@ -197,7 +197,7 @@ local function ModulesPage(controller: Controller.Controller): Frame
 			ButtonRow({
 				Button({
 					label = "Insert Preset",
-					variant = "primary",
+					variant = "secondary",
 					onClick = actions.insertPreset,
 					loading = isRunning("preset"),
 					disabled = function()

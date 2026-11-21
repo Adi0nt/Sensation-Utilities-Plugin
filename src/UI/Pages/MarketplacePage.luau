@@ -84,7 +84,7 @@ local function MarketplacePage(controller: Controller.Controller): Frame
 			ButtonRow({
 				Button({
 					label = "Upload to Roblox",
-					variant = "primary",
+					variant = "secondary",
 					onClick = actions.upload,
 					loading = isRunning("upload"),
 					disabled = function()

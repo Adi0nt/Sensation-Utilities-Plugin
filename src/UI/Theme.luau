@@ -90,7 +90,7 @@ end
 
 Theme.text = {
 	title = style(Enum.Font.BuilderSansBold, 18),
-	heading = style(Enum.Font.BuilderSansBold, 14),
+	heading = style(Enum.Font.BuilderSansBold, 15),
 	body = style(Enum.Font.BuilderSans, 14),
 	label = style(Enum.Font.BuilderSansMedium, 13),
 	helper = style(Enum.Font.BuilderSans, 12),

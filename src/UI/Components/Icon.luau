@@ -43,27 +43,22 @@ local drawings: { [Kind]: (color: Color) -> { Instance } } = {
 			block(9, 9, 6, 6, 2, color),
 		}
 	end,
-	-- A shopping bag: the handle is an outline hidden behind the body.
+	-- A storefront: filled awning, outlined shop front, filled door.
 	market = function(color)
 		return {
+			block(1, 1.5, 14, 4.5, 1.5, color),
 			new "Frame" {
-				Position = UDim2.fromOffset(4.5, 1),
-				Size = UDim2.fromOffset(7, 8),
+				Position = UDim2.fromOffset(3.25, 7.75),
+				Size = UDim2.fromOffset(9.5, 6.5),
 				BackgroundTransparency = 1,
-				Flux.corner(3.5),
+				Flux.corner(1),
 				new "UIStroke" {
 					Thickness = 1.5,
 					Color = color,
 					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 				},
 			},
-			new "Frame" {
-				Position = UDim2.fromOffset(1.5, 6),
-				Size = UDim2.fromOffset(13, 9),
-				BackgroundColor3 = color,
-				ZIndex = 2,
-				Flux.corner(2.5),
-			},
+			block(6.75, 10.25, 2.5, 4.5, 1, color),
 		}
 	end,
 	-- A character bust: head and shoulders.

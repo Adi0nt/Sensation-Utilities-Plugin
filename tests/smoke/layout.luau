@@ -64,7 +64,8 @@ local function verify(vw, vh, page, selectionKind)
 	local px, py, pw, ph = rect(pages)
 	local sux, suy, suw, suh = rect(summary)
 	if ph < 100 then flag(ctx, `page area is only {ph}px tall`) end
-	if math.abs(py - (suy + suh)) > 1 then flag(ctx, `page area should start under the selection bar ({suy + suh}), starts at {py}`) end
+	local dvx, dvy, dvw, dvh = rect(find("SelectionDivider"))
+	if math.abs(py - (dvy + dvh)) > 1 or math.abs(dvy - (suy + suh)) > 1 then flag(ctx, `page area should start under the selection bar and its divider ({dvy + dvh}), starts at {py}`) end
 	if math.abs((py + ph) - sty) > 1 then flag(ctx, `page area should end where the status bar starts ({sty}), ends at {py + ph}`) end
 
 	-- Header contents fit: brand + meta within the header
