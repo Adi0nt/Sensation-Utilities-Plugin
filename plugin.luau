@@ -15,7 +15,6 @@ local methodState: any = nil
 
 local rawLib
 local maid
-local task
 local Iris
 
 local instance_newindex
@@ -275,7 +274,6 @@ local irisLib = require(irisModule)
 
 rawLib = require(packages.RawLib)
 maid = require(packages.Maid)
-task = require(packages.Task)
 
 maid = maid.new()
 instance_newindex = rawLib.instance_newindex
@@ -365,7 +363,7 @@ end
 
 local currentCommit = "c31fc51"
 
-task.spawn(function()
+local function fetchLatestCommit()
 	local success, response = pcall(function()
 		return httpService:RequestAsync({
 			Url = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/commit/main.patch",
@@ -382,7 +380,13 @@ task.spawn(function()
 			currentCommit = match
 		end
 	end
-end)
+end
+
+if task and task.spawn then
+	task.spawn(fetchLatestCommit)
+else
+	coroutine.wrap(fetchLatestCommit)()
+end
 
 local windowSize = Iris.State(Vector2.new(460, 440))
 local isWindowVisible = Iris.State(false)
