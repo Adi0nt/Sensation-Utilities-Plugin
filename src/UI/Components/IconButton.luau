@@ -13,7 +13,9 @@ export type Props = {
 	icon: Icon.Kind,
 	onClick: () -> (),
 	--- What the button does. Shown as a tooltip.
-	label: string,
+	label: Flux.Reactive<string>,
+	--- Degrees to turn the glyph (e.g. a chevron that points the way the sidebar will move).
+	rotation: Flux.Reactive<number>?,
 	disabled: Flux.Reactive<boolean>?,
 }
 
@@ -63,12 +65,15 @@ local function IconButton(props: Props): TextButton
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromOffset(16, 16),
+			Rotation = Flux.tween(function()
+				return Flux.read(props.rotation) or 0
+			end, Theme.tween.base),
 			BackgroundTransparency = 1,
 			Icon(props.icon, glyphColor),
 		},
 	}
 
-	Tooltip.attach(button, props.label, hovered)
+	Tooltip.attach(button, props.label :: any, hovered)
 	return button
 end
 

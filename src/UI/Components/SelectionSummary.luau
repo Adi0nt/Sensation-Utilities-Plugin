@@ -12,7 +12,7 @@ local C = Theme.color
 
 export type Props = {
 	summary: Flux.Reactive<Format.Summary>,
-	variant: ("bar" | "inline")?,
+	variant: ("bar" | "header" | "inline")?,
 	--- Small caption above the name, e.g. "Target".
 	caption: string?,
 }
@@ -23,6 +23,7 @@ local CAPTION_HEIGHT = 14
 
 local function SelectionSummary(props: Props): Frame
 	local isBar = props.variant ~= "inline"
+	local isHeader = props.variant == "header" -- fills the top bar, no padding of its own
 
 	local hasSelection = Flux.computed(function()
 		return Flux.read(props.summary).kind ~= "none"
@@ -84,10 +85,13 @@ local function SelectionSummary(props: Props): Frame
 
 	local root = new "Frame" {
 		Name = "SelectionSummary",
-		Size = UDim2.new(1, 0, 0, contentHeight + verticalPadding * 2),
+		Size = if isHeader then UDim2.fromScale(1, 1) else UDim2.new(1, 0, 0, contentHeight + verticalPadding * 2),
 		BackgroundColor3 = C.sunken,
 		BackgroundTransparency = if isBar then 1 else 0,
-		Flux.padding({ x = if isBar then Theme.size.pagePadding else 12, y = verticalPadding }),
+		Flux.padding({
+			x = if isHeader then 0 elseif isBar then Theme.size.pagePadding else 12,
+			y = if isHeader then 0 else verticalPadding,
+		}),
 
 		-- Selection indicator dot: accent when something is selected.
 		new "Frame" {

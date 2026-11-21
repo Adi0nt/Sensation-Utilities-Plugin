@@ -46,8 +46,8 @@ local function verify(vw, vh, page, selectionKind)
 
 	local function find(name) for _, d in screen:GetDescendants() do if d.Name == name then return d end end end
 	local root = find("SensationUtilities")
-	local header, sidebar, main, pages, status, summary, column =
-		find("Header"), find("Sidebar"), find("Main"), find("Pages"), find("StatusMessage"), find("SelectionSummary"), find("Column")
+	local header, sidebar, main, pages, status, column =
+		find("Header"), find("Sidebar"), find("Main"), find("Pages"), find("StatusMessage"), find("Column")
 
 	-- Shell geometry
 	checks += 1
@@ -62,18 +62,30 @@ local function verify(vw, vh, page, selectionKind)
 	local stx, sty, stw, sth = rect(status)
 	if math.abs((sty + sth) - vh) > 1 then flag(ctx, `status bar should end at the window bottom ({vh}), ends at {sty + sth}`) end
 	local px, py, pw, ph = rect(pages)
-	local sux, suy, suw, suh = rect(summary)
 	if ph < 100 then flag(ctx, `page area is only {ph}px tall`) end
-	local dvx, dvy, dvw, dvh = rect(find("SelectionDivider"))
-	if math.abs(py - (dvy + dvh)) > 1 or math.abs(dvy - (suy + suh)) > 1 then flag(ctx, `page area should start under the selection bar and its divider ({dvy + dvh}), starts at {py}`) end
+	if math.abs(py - my) > 1 then flag(ctx, `page area should start at the top of the content layer ({my}), starts at {py}`) end
 	if math.abs((py + ph) - sty) > 1 then flag(ctx, `page area should end where the status bar starts ({sty}), ends at {py + ph}`) end
 
-	-- Header contents fit: brand + meta within the header
-	local brand, meta = find("Brand"), find("Meta")
-	local bx, _, bw = rect(brand); local mex, _, mew = rect(meta)
+	-- Header contents fit: logo, selection summary and status/version side by side, inside the header
+	local logo, selection = find("Logo"), find("Selection")
+	local bx, _, bw = rect(logo); local slx, _, slw = rect(selection)
 	checks += 1
-	if bx + bw > mex + 1 then flag(ctx, `header brand ({bx + bw}) overlaps the version/status area ({mex})`) end
-	if mex + mew > vw + 0.5 then flag(ctx, `header meta runs past the window ({mex + mew} > {vw})`) end
+	if bx + bw > slx + 1 then flag(ctx, `header logo ({bx + bw}) overlaps the selection ({slx})`) end
+	if slx + slw > vw + 0.5 then flag(ctx, `header selection runs past the window ({slx + slw} > {vw})`) end
+
+	-- Sidebar footer: inside the sidebar, below the last nav item, and everything in it fits the sidebar's width
+	local footer, lastNav = find("Footer"), find("Nav_Studio")
+	local fx, fy, fw, fh = rect(footer); local nx, ny, nw, nh = rect(lastNav)
+	checks += 1
+	if fy < ny + nh - 0.5 then flag(ctx, `sidebar footer ({fy}) overlaps the last nav item (ends {ny + nh})`) end
+	if fy + fh > vh + 0.5 then flag(ctx, `sidebar footer runs past the window bottom ({fy + fh} > {vh})`) end
+	for _, d in footer:GetDescendants() do
+		if d:IsA("GuiObject") and d.Visible and not d.Name:find("^Icon_") and d.Parent and not d.Parent.Name:find("^Icon_") and d.Name ~= "Spinner" then
+			local dx, _, dw = rect(d)
+			checks += 1
+			if dx < sx - 0.5 or dx + dw > sx + sw + 0.5 then flag(ctx, `footer item {d.Name} ({dx},{dw}) is outside the sidebar ({sx},{sw})`) end
+		end
+	end
 
 	-- Content column: never wider than 640, never narrower than the window allows
 	local cx, cy, cw, ch = rect(column)

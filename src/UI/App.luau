@@ -8,6 +8,7 @@ local Actions = require("./Actions")
 local ConfirmationDialog = require("./Components/ConfirmationDialog")
 local Context = require("./Context")
 local Controller = require("./Pages/Controller")
+local IconButton = require("./Components/IconButton")
 local LoadingIndicator = require("./Components/LoadingIndicator")
 local MarketplacePage = require("./Pages/MarketplacePage")
 local ModulesPage = require("./Pages/ModulesPage")
@@ -59,13 +60,6 @@ local function levelColor(level: string): Color3
 end
 
 local function Header(state: State.State): Frame
-	local isBusy = Flux.computed(function()
-		return state.busy() ~= nil
-	end)
-	local indicatorColor = Flux.tween(function()
-		return levelColor(state.statusLine().level)
-	end, Theme.tween.base)
-
 	return new "Frame" {
 		Name = "Header",
 		Size = UDim2.new(1, 0, 0, Theme.size.header),
@@ -76,49 +70,81 @@ local function Header(state: State.State): Frame
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Flux.padding({ x = Theme.space.lg }),
-			Flux.list({ direction = "x", gap = 10, align = "center", justify = "between" }),
+			Flux.list({ direction = "x", gap = 12, align = "center" }),
 
-			-- Brand
-			new "Frame" {
-				Name = "Brand",
-				Size = UDim2.fromScale(0, 1),
-				AutomaticSize = Enum.AutomaticSize.X,
+			-- Logo: the same icon as the toolbar button.
+			new "ImageLabel" {
+				Name = "Logo",
+				Size = UDim2.fromOffset(28, 28),
 				BackgroundTransparency = 1,
-				Flux.list({ direction = "x", gap = 10, align = "center" }),
-
-				new "Frame" {
-					Name = "Mark",
-					Size = UDim2.fromOffset(24, 24),
-					BackgroundColor3 = C.accent,
-					Flux.corner(Theme.radius.sm),
-					new "TextLabel" {
-						Size = UDim2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						Text = "S",
-						TextColor3 = C.onAccent,
-						FontFace = Theme.text.heading.face,
-						TextSize = Theme.text.heading.size,
-					},
-				},
-				new "TextLabel" {
-					Name = "Title",
-					Size = UDim2.fromScale(0, 1),
-					AutomaticSize = Enum.AutomaticSize.X,
-					BackgroundTransparency = 1,
-					Text = "Sensation Utilities",
-					TextColor3 = C.text,
-					FontFace = Theme.text.heading.face,
-					TextSize = Theme.text.heading.size,
-				},
+				Image = "rbxassetid://16517502292",
+				ScaleType = Enum.ScaleType.Fit,
+				Flux.corner(Theme.radius.sm),
 			},
 
-			-- Status dot / spinner and version chip
+			-- What is selected in Explorer, in the bar itself instead of a second strip below it.
 			new "Frame" {
-				Name = "Meta",
+				Name = "Selection",
 				Size = UDim2.fromScale(0, 1),
-				AutomaticSize = Enum.AutomaticSize.X,
 				BackgroundTransparency = 1,
-				Flux.list({ direction = "x", gap = 10, align = "center" }),
+				Flux.flex(),
+				SelectionSummary({ summary = state.summary, variant = "header" }),
+			},
+		},
+	}
+end
+
+--- The bottom of the sidebar: what the plugin is doing (dot or spinner), the version, and a toggle that collapses the
+--- sidebar to the icon rail or opens it again. In the rail only the dot and the toggle show, stacked.
+local function SidebarFooter(controller: Controller.Controller): Frame
+	local state, actions = controller.state, controller.actions
+
+	local isBusy = Flux.computed(function()
+		return state.busy() ~= nil
+	end)
+	local indicatorColor = Flux.tween(function()
+		return levelColor(state.statusLine().level)
+	end, Theme.tween.base)
+
+	return new "Frame" {
+		Name = "Footer",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+
+		-- Hairline above the footer, inset like the nav items.
+		new "Frame" {
+			Name = "Divider",
+			Position = UDim2.fromOffset(Theme.space.sm, 0),
+			Size = UDim2.new(1, -Theme.space.sm * 2, 0, 1),
+			BackgroundColor3 = C.borderSubtle,
+		},
+
+		new "Frame" {
+			Name = "Row",
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Flux.padding({ x = Theme.space.sm, y = Theme.space.sm }),
+			Flux.list({
+				direction = function()
+					return if state.compactNav() then "y" else "x"
+				end,
+				gap = Theme.space.sm,
+				align = "center",
+				justify = "between",
+			}),
+
+			-- Status dot / spinner, and the version chip when there is room for it.
+			new "Frame" {
+				Name = "Status",
+				Size = UDim2.fromScale(0, 0),
+				AutomaticSize = Enum.AutomaticSize.XY,
+				BackgroundTransparency = 1,
+				Flux.padding({ x = Theme.space.sm }),
+				Flux.list({ direction = "x", gap = 8, align = "center" }),
 
 				new "Frame" {
 					Name = "StatusIndicator",
@@ -137,19 +163,35 @@ local function Header(state: State.State): Frame
 					end),
 				},
 
-				new "TextLabel" {
-					Name = "Version",
-					Size = UDim2.fromOffset(0, 22),
-					AutomaticSize = Enum.AutomaticSize.X,
-					BackgroundColor3 = C.control,
-					Text = state.commit,
-					TextColor3 = C.textTertiary,
-					FontFace = Theme.text.mono.face,
-					TextSize = Theme.text.mono.size,
-					Flux.corner(Theme.radius.sm),
-					Flux.padding({ x = 8 }),
-				},
+				Flux.show(function()
+					return not state.compactNav()
+				end, function()
+					return new "TextLabel" {
+						Name = "Version",
+						Size = UDim2.fromOffset(0, 22),
+						AutomaticSize = Enum.AutomaticSize.X,
+						BackgroundColor3 = C.control,
+						Text = state.commit,
+						TextColor3 = C.textTertiary,
+						FontFace = Theme.text.mono.face,
+						TextSize = Theme.text.mono.size,
+						Flux.corner(Theme.radius.sm),
+						Flux.padding({ x = 8 }),
+					}
+				end),
 			},
+
+			IconButton({
+				icon = "chevron",
+				label = function()
+					return if state.compactNav() then "Expand sidebar" else "Collapse sidebar"
+				end,
+				-- A down chevron turned to point where the sidebar will go: left to collapse, right to expand.
+				rotation = function()
+					return if state.compactNav() then -90 else 90
+				end,
+				onClick = actions.toggleNav,
+			}),
 		},
 	}
 end
@@ -208,6 +250,8 @@ local function Sidebar(controller: Controller.Controller): Frame
 			Flux.list({ gap = Theme.space.xs }),
 			items,
 		},
+
+		SidebarFooter(controller),
 	}
 end
 
@@ -331,12 +375,6 @@ local function mount(config: Config): App
 							Flux.flex(),
 							Flux.list({ gap = 0 }),
 
-							SelectionSummary({ summary = state.summary, variant = "bar" }),
-							new "Frame" {
-								Name = "SelectionDivider",
-								Size = UDim2.new(1, 0, 0, 1),
-								BackgroundColor3 = C.borderSubtle,
-							},
 							PageArea(controller),
 							StatusMessage({ line = state.statusLine, onDismiss = actions.dismissStatus }),
 						},

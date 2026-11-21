@@ -25,6 +25,8 @@ at a narrow and a wide size helps most).
 
 ## 2. Look and feel
 
+- [ ] The sidebar footer shows the status dot and version, and its chevron button collapses the sidebar to the icon rail and opens it again (the choice sticks while you resize); in the rail only the dot and the button show.
+- [ ] The top bar is a single row: the toolbar icon, the selection (name and class, updating as you click in Explorer), then the status dot and version. Studio's own title bar is the only place the name appears.
 - [ ] The panel's colours match Studio's own panels (Explorer, Properties) in the current theme.
 - [ ] Switch Studio's theme (File > Studio Settings > Studio > Theme): the panel rebuilds in the new colours without errors, keeps the page you were on, and everything is readable in both dark and light.
 - [ ] The "Ready" text and its dot are vertically centred in the status bar, and level with each other.

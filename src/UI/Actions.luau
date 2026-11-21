@@ -28,6 +28,7 @@ export type Actions = {
 	reloadMethods: () -> (),
 	dismissStatus: () -> (),
 	navigate: (page: State.Page) -> (),
+	toggleNav: () -> (),
 }
 
 export type Config = {
@@ -298,6 +299,10 @@ function Actions.new(state: State.State, config: Config): Actions
 		dismissStatus = function()
 			cancelDismissTimer()
 			state.status:set(nil)
+		end,
+
+		toggleNav = function()
+			state.navOverride:set(not state.compactNav:peek())
 		end,
 
 		navigate = function(page: State.Page)

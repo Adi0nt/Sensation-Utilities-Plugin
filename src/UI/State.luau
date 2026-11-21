@@ -58,6 +58,8 @@ export type State = {
 	-- Chrome
 	commit: Flux.State<string>,
 	width: Flux.Node<number>,
+	--- `nil` follows the window width; the sidebar footer toggle pins it collapsed (`true`) or open (`false`).
+	navOverride: Flux.State<boolean?>,
 	compactNav: Flux.Node<boolean>,
 	stackCards: Flux.Node<boolean>,
 
@@ -199,7 +201,12 @@ function State.new(config: Config): State
 	local width = Flux.computed(function()
 		return widgetSize().X
 	end)
+	local navOverride = Flux.signal(nil :: boolean?)
 	local compactNav = Flux.computed(function()
+		local pinned = navOverride()
+		if pinned ~= nil then
+			return pinned
+		end
 		local current = width()
 		return current > 0 and current < Theme.breakpoint.compactNav
 	end)
@@ -253,6 +260,7 @@ function State.new(config: Config): State
 
 		commit = Flux.signal(config.commit),
 		width = width,
+		navOverride = navOverride,
 		compactNav = compactNav,
 		stackCards = stackCards,
 
