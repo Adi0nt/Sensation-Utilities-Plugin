@@ -25,6 +25,10 @@ at a narrow and a wide size helps most).
 
 ## 2. Look and feel
 
+- [ ] The panel's colours match Studio's own panels (Explorer, Properties) in the current theme.
+- [ ] Switch Studio's theme (File > Studio Settings > Studio > Theme): the panel rebuilds in the new colours without errors, keeps the page you were on, and everything is readable in both dark and light.
+- [ ] The "Ready" text and its dot are vertically centred in the status bar, and level with each other.
+
 - [ ] Fonts look crisp; nothing smaller than the helper text; disabled text is dimmer but readable.
 - [ ] Hover and press on buttons, nav items, dropdown rows: short colour change, never laggy.
 - [ ] Hover a **disabled** button for ~0.5 s: a tooltip explains why. It is not clipped by the scroll area.

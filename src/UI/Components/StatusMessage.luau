@@ -81,7 +81,8 @@ local function StatusMessage(props: Props): Frame
 
 		new "Frame" {
 			Name = "Content",
-			Size = UDim2.fromScale(1, 0),
+			-- A 40 px minimum (the bar grows for wrapped text); the row is centred vertically inside it.
+			Size = UDim2.new(1, 0, 0, MIN_HEIGHT),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			Flux.padding({ x = Theme.size.pagePadding, y = 8 }),

@@ -176,6 +176,7 @@ local Methods = require((uiRoot :: any).Core.Methods) :: any
 local Http = require((uiRoot :: any).Core.Http) :: any
 local Operations = require((uiRoot :: any).Core.Operations) :: any
 local App = require((uiRoot :: any).UI.App) :: any
+local Theme = require((uiRoot :: any).UI.Theme) :: any
 
 -- Bypass methods ---------------------------------------------------------------------------------------------------
 
@@ -253,20 +254,41 @@ local operations = Operations.new({
 	newIndex = rawLib.instance_newindex,
 })
 
-local app = App.mount({
-	widget = widget,
-	operations = operations,
-	methods = methods,
-	log = Log,
-	commit = "main",
-	reloadMethods = function()
-		local count, reason = loadMethods()
-		if count then
-			Log.info(`Loaded {count} method(s).`)
-		end
-		return count, reason
-	end,
-})
+local function mountApp(commit: string): any
+	return App.mount({
+		widget = widget,
+		operations = operations,
+		methods = methods,
+		log = Log,
+		commit = commit,
+		reloadMethods = function()
+			local count, reason = loadMethods()
+			if count then
+				Log.info(`Loaded {count} method(s).`)
+			end
+			return count, reason
+		end,
+	})
+end
+
+local app = mountApp("main")
+
+-- The panel follows Studio's theme. Components read their colours when they are built, so a theme change refreshes
+-- the palette and rebuilds the interface (keeping the page you were on).
+local studioSettings: any = nil
+pcall(function()
+	studioSettings = (settings() :: any).Studio
+end)
+if studioSettings ~= nil then
+	track(studioSettings.ThemeChanged:Connect(function()
+		local page, commit = app.state.page:peek(), app.state.commit:peek()
+		app.unmount()
+		Theme.refresh()
+		app = mountApp(commit)
+		app.state.page:set(page)
+	end))
+end
+
 table.insert(cleanups, function()
 	app.unmount()
 	-- Flux registers one frame connection per loaded copy that it cannot remove itself; park it so it does no work.

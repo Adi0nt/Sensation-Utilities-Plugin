@@ -701,5 +701,52 @@ test("status messages: success fades back to Ready, errors stay until dismissed"
 end)
 
 
+
+test("status strip: the dot and the text are centred in the bar and with each other", function()
+	local w = newWorld()
+	engine:setViewport(Vector2.new(520, 760)); frames(8)
+	local bar = find(w.screen, "StatusMessage")
+	local dot = find(bar, "Indicator")
+	local label = find(bar, "Text", "TextLabel")
+	local function centre(d) return d.AbsolutePosition.Y + d.AbsoluteSize.Y / 2 end
+	local barCentre = bar.AbsolutePosition.Y + bar.AbsoluteSize.Y / 2
+	print(string.format("        bar y=%.1f h=%.1f | dot centre %.1f | text centre %.1f | bar centre %.1f", bar.AbsolutePosition.Y, bar.AbsoluteSize.Y, centre(dot), centre(label), barCentre))
+	check(math.abs(centre(dot) - centre(label)) <= 1, "dot and text share a centre line")
+	-- the 1 px divider sits on top, so the content centre is half a pixel below the bar's centre
+	check(math.abs(centre(label) - barCentre) <= 1.5, "row is vertically centred in the status bar")
+	teardown(w)
+end)
+
+test("theme: text tokens stay readable on every surface (Studio-derived palette)", function()
+	local C = Theme.color
+	local function lin(c) return if c <= 0.03928 then c / 12.92 else ((c + 0.055) / 1.055) ^ 2.4 end
+	local function lum(c) return 0.2126 * lin(c.R) + 0.7152 * lin(c.G) + 0.0722 * lin(c.B) end
+	local function ratio(a, b)
+		local la, lb = lum(a), lum(b)
+		if la < lb then la, lb = lb, la end
+		return (la + 0.05) / (lb + 0.05)
+	end
+	local surfaces = { "chrome", "canvas", "card", "sunken", "control", "popup", "subtle" }
+	for _, s in surfaces do
+		check(ratio(C.text, C[s]) >= 7, "text on " .. s)
+		check(ratio(C.textMuted, C[s]) >= 4.5, "textMuted on " .. s)
+		check(ratio(C.textTertiary, C[s]) >= 4.5, "textTertiary on " .. s)
+	end
+	check(ratio(C.onAccent, C.accent) >= 4.5, "label on accent button")
+	check(ratio(C.onAccent, C.accentHover) >= 4.5, "label on hovered accent button")
+	check(ratio(C.accentText, C.accentSubtle) >= 4.5, "accent text on its subtle fill")
+	check(ratio(C.textTertiary, C.accentSubtle) >= 4.5, "disabled primary label")
+	for _, status in { "success", "warning", "error" } do
+		check(ratio(C[status], C.card) >= 4.5, status .. " on card")
+	end
+end)
+
+test("theme: refresh is a no-op outside Studio and leaves the palette intact", function()
+	local before = Theme.color.accent
+	eq(Theme.refresh(), false, "no Studio theme available headlessly")
+	eq(Theme.color.accent, before, "palette unchanged")
+end)
+
+
 print(`\n{passed} passed, {failed} failed`)
 if failed > 0 then require("@lune/process").exit(1) end

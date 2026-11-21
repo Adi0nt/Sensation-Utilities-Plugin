@@ -25,6 +25,7 @@ library.
 
 ### Using the interface
 
+- The panel uses your Studio theme's colours and follows it when you change themes.
 - Open or close the panel with the **Sensation Utilities** toolbar button. It is a normal Studio dock widget: dock it,
   float it, resize it, hide it and reopen it. Studio remembers where you left it.
 - **Navigation** (Modules, Marketplace, Studio) is a sidebar that collapses to icons in a narrow dock.
@@ -96,7 +97,7 @@ plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget,
 | Path | Layer | Responsibility |
 | --- | --- | --- |
 | `src/Core` | **Utility operations** | The bypass, sandbox, cleaner, preset, asset and rig logic. No GUI or UI framework. Every operation returns a result `{ ok, level, message }`. Dependencies (plugin, selection, undo history, method store, raw property writes) are injected. |
-| `src/UI/Theme.luau` | **Theme** | Every colour, font size, spacing, radius and motion value. Nothing else hardcodes them. The values follow Caelum's design system (dark theme, Blue accent): chrome, canvas and card surfaces, a 4-pt spacing scale and a 13/14/20 type scale. |
+| `src/UI/Theme.luau` | **Theme** | Every colour, font size, spacing, radius and motion value. Nothing else hardcodes them. Colours are read from the active **Studio theme** (`StudioStyleGuideColor`), so the panel matches Studio in any theme and rebuilds itself when you switch; surfaces, lines and hovers are derived from those colours. The structure follows Caelum's design system: chrome, canvas and card surfaces, a 4-pt spacing scale and a 13/14/20 type scale. |
 | `src/UI/Components` | **Components** | Button, IconButton, TextInput / NumberInput, Dropdown, SegmentedControl, SectionHeader, Panel, Tooltip, StatusMessage, ConfirmationDialog, SelectionSummary, SidebarItem, LoadingIndicator and the drawn icons. |
 | `src/UI/State.luau` | **UI state** | One signal per value (page, selection, method, mode, inputs, status, busy, confirmation) plus computed values: derived selection summary, validation errors, and a *gate* per action that says why it is unavailable. |
 | `src/UI/Actions.luau` | **Glue** | Runs an operation: refuses duplicates, shows progress, asks for confirmation, catches errors, reports the result. |

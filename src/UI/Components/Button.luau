@@ -39,46 +39,48 @@ type Palette = {
 }
 
 -- Same interaction model for every variant: rest, hover, pressed, disabled.
-local palettes: { [Variant]: Palette } = {
-	primary = {
-		base = C.accent,
-		hover = C.accentHover,
-		pressed = C.accentPressed,
-		text = C.onAccent,
-		border = C.accent,
-		borderHover = C.accentHover,
-		-- Caelum: a disabled primary drops to the subtle accent fill.
-		disabledBase = C.accentSubtle,
-		disabledText = C.textTertiary,
-		disabledBorder = C.accentSubtle,
-	},
-	secondary = {
-		base = C.control,
-		hover = C.controlHover,
-		pressed = C.controlPressed,
-		text = C.text,
-		border = C.border,
-		borderHover = C.borderStrong,
-		disabledBase = C.controlDisabled,
-		disabledText = C.textTertiary,
-		disabledBorder = C.borderSubtle,
-	},
-	ghost = {
-		base = C.card,
-		hover = C.cardHover,
-		pressed = C.control,
-		text = C.textMuted,
-		border = C.card,
-		borderHover = C.card,
-		disabledBase = C.card,
-		disabledText = C.textTertiary,
-		disabledBorder = C.card,
-	},
-}
+local function palettes(): { [Variant]: Palette }
+	return {
+		primary = {
+			base = C.accent,
+			hover = C.accentHover,
+			pressed = C.accentPressed,
+			text = C.onAccent,
+			border = C.accent,
+			borderHover = C.accentHover,
+			-- Caelum: a disabled primary drops to the subtle accent fill.
+			disabledBase = C.accentSubtle,
+			disabledText = C.textTertiary,
+			disabledBorder = C.accentSubtle,
+		},
+		secondary = {
+			base = C.control,
+			hover = C.controlHover,
+			pressed = C.controlPressed,
+			text = C.text,
+			border = C.border,
+			borderHover = C.borderStrong,
+			disabledBase = C.controlDisabled,
+			disabledText = C.textTertiary,
+			disabledBorder = C.borderSubtle,
+		},
+		ghost = {
+			base = C.card,
+			hover = C.cardHover,
+			pressed = C.control,
+			text = C.textMuted,
+			border = C.card,
+			borderHover = C.card,
+			disabledBase = C.card,
+			disabledText = C.textTertiary,
+			disabledBorder = C.card,
+		},
+	}
+end
 
 local function Button(props: Props): TextButton
 	local variant: Variant = props.variant or "secondary"
-	local palette = palettes[variant]
+	local palette = palettes()[variant]
 	local isDisabled = Flux.computed(function()
 		return Flux.read(props.disabled) == true
 	end)
