@@ -49,6 +49,9 @@ export type Colors = {
 	accentSubtle: Color3,
 	accentSubtleHover: Color3,
 	accentText: Color3,
+	--- The accent as a thin mark (nav indicator and icon) on chrome surfaces: Studio's blue lifted toward the accent text
+	--- colour so it clears 3:1 against the selected wash.
+	accentMark: Color3,
 	onAccent: Color3,
 	-- Status
 	success: Color3,
@@ -173,6 +176,7 @@ local function build(get: Getter): Colors
 		-- A selected row under the pointer: a touch toward the accent, so it still reads as a selection.
 		accentSubtleHover = mix(get("Item", "Selected"), accent, 0.22),
 		accentText = get("InfoText"),
+		accentMark = mix(accent, get("InfoText"), 0.35),
 		onAccent = get("DialogMainButtonText"),
 
 		success = success,
@@ -237,6 +241,7 @@ Theme.text = {
 	label = style(Enum.Font.BuilderSansMedium, 13), -- input labels, buttons
 	helper = style(Enum.Font.BuilderSans, 12), -- captions, helper text
 	overline = style(Enum.Font.BuilderSansBold, 11), -- nav count badges
+	group = style(Enum.Font.BuilderSansMedium, 11), -- sidebar group labels
 	mono = style(Enum.Font.RobotoMono, 12),
 }
 
@@ -266,6 +271,8 @@ Theme.size = {
 	sidebar = 176,
 	sidebarCompact = 56, -- Caelum's rail
 	sidebarItem = 32, -- Caelum's nav item
+	railItem = 40, -- the same item in the icon rail: a square button with a larger icon
+	railIcon = 20,
 	icon = 16,
 	tile = 32, -- icon tile
 	pagePadding = 20, -- Caelum compact page padding

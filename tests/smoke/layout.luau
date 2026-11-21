@@ -98,16 +98,47 @@ local function verify(vw, vh, page, selectionKind)
 		end
 	end
 
-	-- The nav icons and the footer status dot share one centre line (the rail's), expanded or not
-	local function centreX(d) return d.AbsolutePosition.X + d.AbsoluteSize.X / 2 end
-	local navIcon, statusDot = find("IconSlot"), find("StatusIndicator")
-	checks += 1
-	if math.abs(centreX(statusDot) - centreX(navIcon)) > 1 then flag(ctx, `footer status dot ({centreX(statusDot)}) is not under the nav icons ({centreX(navIcon)})`) end
+	-- The selection indicator sits right on its nav pill's left edge, inside the pill and level with it
+	for _, d in sidebar:GetDescendants() do
+		if d.Name == "Indicator" and d.Parent and d.Parent.Name:find("^Nav_") then
+			local ix, _, iw = rect(d); local px2, _, pw2 = rect(d.Parent)
+			checks += 1
+			if math.abs(ix - px2) > 0.5 then flag(ctx, `{d.Parent.Name} indicator ({ix}) is not on the pill's left edge ({px2})`) end
+			if ix + iw > px2 + pw2 then flag(ctx, `{d.Parent.Name} indicator runs past its pill`) end
+		end
+	end
+
+	-- In the icon rail the nav items are 40 px buttons whose larger icon is centred and fully inside them
+	if sw < 100 then
+		for _, d in sidebar:GetDescendants() do
+			if d.Name:find("^Nav_") then
+				local nx2, ny2, nw2, nh2 = rect(d); local slot = d:FindFirstChild("IconSlot")
+				local cx2, cy2, cw2, ch2 = rect(slot)
+				checks += 1
+				if math.abs(nh2 - 40) > 1 then flag(ctx, `{d.Name} is {nh2} tall in the rail, expected 40`) end
+				if math.abs((cx2 + cw2 / 2) - (nx2 + nw2 / 2)) > 1 or math.abs((cy2 + ch2 / 2) - (ny2 + nh2 / 2)) > 1 then flag(ctx, `{d.Name} icon is not centred in its rail button`) end
+				if math.abs(cw2 - 20) > 1 then flag(ctx, `{d.Name} rail icon is {cw2} px, expected 20`) end
+			end
+		end
+	end
+
+	-- The footer and the status bar are the same height and their hairlines run level; the toggle is centred in the footer
+	do
+		local _, ftop, _, fht = rect(find("Footer")); local _, stop, _, sht = rect(status)
+		checks += 1
+		if math.abs(fht - 40) > 0.5 then flag(ctx, `footer is {fht} tall, expected 40`) end
+		if math.abs(sht - 40) < 0.5 and math.abs(ftop - stop) > 0.5 then flag(ctx, `footer top ({ftop}) is not level with the status bar top ({stop})`) end
+		local toggle = find("IconButton_sidebar")
+		local tx, ty, tw, th = rect(toggle); local fx3, _, fw3 = rect(find("Footer"))
+		checks += 1
+		if math.abs((ty + th / 2) - (ftop + fht / 2)) > 1 then flag(ctx, "the sidebar toggle is not vertically centred in the footer") end
+		if find("Sidebar") and tw > 0 and sidebar.AbsoluteSize.X < 100 and math.abs((tx + tw / 2) - (fx3 + fw3 / 2)) > 1 then flag(ctx, "the toggle is not centred in the icon rail") end
+	end
 
 	-- Content column: never wider than 640, never narrower than the window allows
 	local cx, cy, cw, ch = rect(column)
 	checks += 1
-	if cw > 720.5 then flag(ctx, `content column is {cw}px wide (max 720)`) end
+	if cw > 728.5 then flag(ctx, `content column is {cw}px wide (max 720 plus the 4 px fade bleed each side)`) end
 	if cx < px - 0.5 or cx + cw > px + pw + 0.5 then flag(ctx, "content column leaves the page area horizontally") end
 
 	-- Every visible GuiObject in the page content must sit inside its parent horizontally (no clipping/overflow)

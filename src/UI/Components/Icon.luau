@@ -4,7 +4,7 @@
 
 local Flux = require("../../Flux")
 
-export type Kind = "modules" | "market" | "studio" | "chevron" | "close" | "check"
+export type Kind = "modules" | "market" | "studio" | "chevron" | "close" | "check" | "commit" | "sidebar"
 
 local new = Flux.new
 
@@ -33,39 +33,63 @@ local function bar(x: number, y: number, length: number, thickness: number, rota
 	}
 end
 
+local STROKE = 1.25
+
+--- An outlined rounded box. The box is given as the OUTER edge of the line (x, y, width, height), the way the glyph is
+--- designed on the 16 px grid; the frame itself is inset by the line width because the stroke is drawn outside it.
+local function outline(x: number, y: number, width: number, height: number, corner: any, color: Color): Frame
+	return new "Frame" {
+		Position = UDim2.fromOffset(x + STROKE, y + STROKE),
+		Size = UDim2.fromOffset(width - STROKE * 2, height - STROKE * 2),
+		BackgroundTransparency = 1,
+		Flux.corner(corner),
+		new "UIStroke" {
+			Thickness = STROKE,
+			Color = color,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		},
+	}
+end
+
+-- Line glyphs, like Caelum's: 1.25 px outlines on a 16 px grid.
 local drawings: { [Kind]: (color: Color) -> { Instance } } = {
-	-- A 2x2 grid of blocks.
+	-- A 2x2 grid of outlined tiles.
 	modules = function(color)
 		return {
-			block(1, 1, 6, 6, 2, color),
-			block(9, 1, 6, 6, 2, color),
-			block(1, 9, 6, 6, 2, color),
-			block(9, 9, 6, 6, 2, color),
+			outline(1, 1, 6.5, 6.5, 2, color),
+			outline(8.5, 1, 6.5, 6.5, 2, color),
+			outline(1, 8.5, 6.5, 6.5, 2, color),
+			outline(8.5, 8.5, 6.5, 6.5, 2, color),
 		}
 	end,
-	-- A storefront: filled awning, outlined shop front, filled door.
+	-- A storefront: outlined awning and shop front, with a small door.
 	market = function(color)
 		return {
-			block(1, 1.5, 14, 4.5, 1.5, color),
-			new "Frame" {
-				Position = UDim2.fromOffset(3.25, 7.75),
-				Size = UDim2.fromOffset(9.5, 6.5),
-				BackgroundTransparency = 1,
-				Flux.corner(1),
-				new "UIStroke" {
-					Thickness = 1.5,
-					Color = color,
-					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				},
-			},
-			block(6.75, 10.25, 2.5, 4.5, 1, color),
+			outline(1, 1.5, 14, 4.5, 1.5, color),
+			outline(2.5, 6.5, 11, 8, 1.5, color),
+			block(6.75, 10.5, 2.5, 4, 1, color),
 		}
 	end,
-	-- A character bust: head and shoulders.
+	-- A character bust: outlined head and shoulders.
 	studio = function(color)
 		return {
-			block(4.5, 0.5, 7, 7, 3.5, color),
-			block(1.5, 9, 13, 6.5, 3.5, color),
+			outline(4.75, 0.75, 6.5, 6.5, 3.25, color),
+			outline(2, 9, 12, 6.25, { topLeft = 4, topRight = 4, bottomLeft = 1.5, bottomRight = 1.5 }, color),
+		}
+	end,
+	-- A commit: a ring on a line.
+	commit = function(color)
+		return {
+			bar(3.25, 8, 4.5, STROKE, 0, color),
+			bar(12.75, 8, 4.5, STROKE, 0, color),
+			outline(4.75, 4.75, 6.5, 6.5, 3.25, color),
+		}
+	end,
+	-- A window with its left pane marked: the sidebar toggle.
+	sidebar = function(color)
+		return {
+			outline(1, 2.5, 14, 11, 2.5, color),
+			block(5.4, 3.75, STROKE, 8.5, 0.6, color),
 		}
 	end,
 	-- A downward chevron.

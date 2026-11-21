@@ -25,7 +25,7 @@ at a narrow and a wide size helps most).
 
 ## 2. Look and feel
 
-- [ ] The sidebar footer shows the status dot and version, and its chevron button collapses the sidebar to the icon rail and opens it again (the choice sticks while you resize); in the rail only the dot and the button show.
+- [ ] The sidebar footer shows the version, and its sidebar-toggle button collapses the sidebar to the icon rail and opens it again (the choice sticks while you resize); in the rail only the button shows. The footer and the status bar are the same height, so their top lines run level across the bottom of the window, and the status (dot and message) appears once, in the status bar.
 - [ ] Nav markers: select a few ModuleScripts and the Modules item shows their count (a dot on the icon in the rail); start an operation (e.g. Reload, or Marketplace "Latest") and that page's nav item shows a spinner until it finishes.
 - [ ] There is no top bar: the sidebar and the page start right under Studio's title bar. The selection is an Explorer-style chip at the far right of the status bar: the same class icon Explorer shows plus the name, on the selection blue (a neutral pill saying "No selection" when nothing is selected). It updates as you click in Explorer, hovering it shows `name · class`, and a long name truncates with an ellipsis without squeezing the status message. The icon matches Explorer's for several classes (Script, Part, Folder, ModuleScript).
 - [ ] The panel's colours match Studio's own panels (Explorer, Properties) in the current theme.
@@ -33,6 +33,7 @@ at a narrow and a wide size helps most).
 - [ ] The "Ready" text and its dot are vertically centred in the status bar, and level with each other.
 
 - [ ] Fonts look crisp; nothing smaller than the helper text; disabled text is dimmer but readable.
+- [ ] Switching pages fades the new page in (about 0.2 s) with no jump in layout or scroll position, and focus rings on inputs at the page edge are not clipped during or after the fade.
 - [ ] Hover and press on buttons, nav items, dropdown rows: short colour change, never laggy.
 - [ ] Hover a **disabled** button for ~0.5 s: a tooltip explains why. It is not clipped by the scroll area.
 - [ ] Dropdown menu opens under the trigger (flips above near the bottom), scrolls if long, closes on pick or click-away.

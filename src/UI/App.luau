@@ -8,8 +8,8 @@ local Actions = require("./Actions")
 local ConfirmationDialog = require("./Components/ConfirmationDialog")
 local Context = require("./Context")
 local Controller = require("./Pages/Controller")
+local Icon = require("./Components/Icon")
 local IconButton = require("./Components/IconButton")
-local LoadingIndicator = require("./Components/LoadingIndicator")
 local MarketplacePage = require("./Pages/MarketplacePage")
 local ModulesPage = require("./Pages/ModulesPage")
 local Operations = require("../Core/Operations")
@@ -69,105 +69,71 @@ local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "st
 	},
 }
 
--- The nav icons and the footer dot centre on the icon rail's centre line (half of its width).
-local RAIL_CENTRE = Theme.size.sidebarCompact / 2
+-- The footer and the status bar share one height, so their top hairlines run level across the bottom of the window.
+local BAR_HEIGHT = 40
 
---- The bottom of the sidebar: what the plugin is doing (dot or spinner), the version, and a toggle that collapses the
---- sidebar to the icon rail or opens it again. In the rail only the dot and the toggle show, stacked.
+--- The bottom of the sidebar: the version and a toggle that collapses the sidebar to the icon rail or opens it again.
+--- (What the plugin is doing is shown once, in the status bar.) In the rail only the toggle shows, centred.
 local function SidebarFooter(controller: Controller.Controller): Frame
 	local state, actions = controller.state, controller.actions
-
-	local isBusy = Flux.computed(function()
-		return state.busy() ~= nil
-	end)
-	local indicatorColor = Flux.tween(function()
-		return Theme.levelColor(state.statusLine().level)
-	end, Theme.tween.base)
 
 	return new "Frame" {
 		Name = "Footer",
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, BAR_HEIGHT),
 		BackgroundTransparency = 1,
 
-		-- Hairline above the footer, inset like the nav items.
+		-- Hairline across the top, level with the status bar's.
 		new "Frame" {
 			Name = "Divider",
-			Position = UDim2.fromOffset(Theme.space.sm, 0),
-			Size = UDim2.new(1, -Theme.space.sm * 2, 0, 1),
-			BackgroundColor3 = C.border,
+			Size = UDim2.new(1, 0, 0, 1),
+			BackgroundColor3 = C.borderSubtle,
 		},
 
 		new "Frame" {
 			Name = "Row",
-			Size = UDim2.fromScale(1, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.space.sm, y = Theme.space.sm }),
+			Flux.padding({ x = Theme.space.sm }),
 			Flux.list({
-				direction = function()
-					return if state.compactNav() then "y" else "x"
-				end,
-				gap = Theme.space.sm,
+				direction = "x",
 				align = "center",
-				justify = "between",
+				justify = function()
+					return if state.compactNav() then "center" else "between"
+				end,
 			}),
 
-			-- Status dot / spinner, and the version chip when there is room for it.
-			new "Frame" {
-				Name = "Status",
-				Size = UDim2.fromScale(0, 0),
-				AutomaticSize = Enum.AutomaticSize.XY,
-				BackgroundTransparency = 1,
-				-- Puts the 14 px indicator's centre on the rail's centre line (the row already has 8 px of padding).
-				Flux.padding({ x = RAIL_CENTRE - 7 - Theme.space.sm }),
-				Flux.list({ direction = "x", gap = 8, align = "center" }),
-
-				new "Frame" {
-					Name = "StatusIndicator",
-					Size = UDim2.fromOffset(14, 14),
+			-- The version, lined up with the nav icons and labels above it (hidden in the rail). Quiet text, no box.
+			Flux.show(function()
+				return not state.compactNav()
+			end, function()
+				return new "Frame" {
+					Name = "VersionSlot",
+					Size = UDim2.fromScale(0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
 					BackgroundTransparency = 1,
-					Flux.show(isBusy, function()
-						return LoadingIndicator({ color = C.accent, size = 14 })
-					end, function()
-						return new "Frame" {
-							AnchorPoint = Vector2.new(0.5, 0.5),
-							Position = UDim2.fromScale(0.5, 0.5),
-							Size = UDim2.fromOffset(8, 8),
-							BackgroundColor3 = indicatorColor,
-							Flux.corner(UDim.new(0.5, 0)),
-						}
-					end),
-				},
+					Flux.padding({ left = Theme.space.md }),
+					Flux.list({ direction = "x", gap = Theme.space.md, align = "center" }),
 
-				Flux.show(function()
-					return not state.compactNav()
-				end, function()
-					return new "TextLabel" {
+					Icon("commit", C.textTertiary),
+					new "TextLabel" {
 						Name = "Version",
-						Size = UDim2.fromOffset(0, 22),
+						Size = UDim2.fromOffset(0, 20),
 						AutomaticSize = Enum.AutomaticSize.X,
-						BackgroundColor3 = C.control,
+						BackgroundTransparency = 1,
 						Text = state.commit,
-						TextColor3 = C.textTertiary,
+						TextColor3 = C.textMuted,
 						FontFace = Theme.text.mono.face,
 						TextSize = Theme.text.mono.size,
-						Flux.corner(Theme.radius.sm),
-						Flux.padding({ x = 8 }),
-					}
-				end),
-			},
+					},
+				}
+			end),
 
 			IconButton({
-				icon = "chevron",
+				icon = "sidebar",
 				label = function()
 					return if state.compactNav() then "Expand sidebar" else "Collapse sidebar"
-				end,
-				-- A down chevron turned to point where the sidebar will go: left to collapse, right to expand.
-				rotation = function()
-					return if state.compactNav() then -90 else 90
 				end,
 				onClick = actions.toggleNav,
 			}),
@@ -178,7 +144,24 @@ end
 local function Sidebar(controller: Controller.Controller): Frame
 	local state, actions = controller.state, controller.actions
 
-	local items: { any } = {}
+	-- A titled group, like Caelum's sidebar sections; the label hides in the icon rail.
+	local items: { any } = {
+		Flux.show(function()
+			return not state.compactNav()
+		end, function()
+			return new "TextLabel" {
+				Name = "GroupLabel",
+				Size = UDim2.new(1, 0, 0, 28),
+				BackgroundTransparency = 1,
+				Text = "Tools",
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = C.textTertiary,
+				FontFace = Theme.text.group.face,
+				TextSize = Theme.text.group.size,
+				Flux.padding({ left = Theme.space.md }),
+			}
+		end),
+	}
 	for _, entry in NAV do
 		table.insert(
 			items,
@@ -220,7 +203,7 @@ local function Sidebar(controller: Controller.Controller): Frame
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Flux.padding({ x = Theme.space.sm, top = Theme.space.md, bottom = Theme.space.sm }),
-			Flux.list({ gap = Theme.space.xs }),
+			Flux.list({ gap = 2 }),
 			items,
 		},
 
@@ -228,56 +211,52 @@ local function Sidebar(controller: Controller.Controller): Frame
 	}
 end
 
--- Scrolling content fades out over the last pixels before an edge instead of being sliced through mid-line.
-local FADE_TOP = 12
-local FADE_BOTTOM = 24
+-- A page fades in when it is shown, so switching pages (and the build of a tall page) does not pop. The page sits in a
+-- CanvasGroup, which clips to its own bounds, so the group carries a small bleed of padding for focus rings and other
+-- strokes that reach just outside a control; the surrounding page padding is reduced by the same amount.
+local BLEED = 4
+local FADE_FROM = 0.97 -- not quite 1: a fully transparent group would also be treated as hidden by hit-testing
 
---- A strip of the canvas colour that goes from clear to solid, pinned to the top or bottom of the page viewport.
-local function EdgeFade(name: string, atBottom: boolean, height: number): Frame
-	return new "Frame" {
-		Name = name,
-		AnchorPoint = Vector2.new(0, if atBottom then 1 else 0),
-		-- Inset by the content layer's 1 px border so the strip never paints over it.
-		Position = UDim2.new(0, 1, if atBottom then 1 else 0, if atBottom then 0 else 1),
-		Size = UDim2.new(1, -2, 0, height),
-		BackgroundColor3 = C.canvas,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-		-- The top strip sits in the content layer's rounded top-left corner, so it follows the curve (radius minus the border).
-		Flux.corner({
-			topLeft = if atBottom then 0 else Theme.radius.md - 1,
-			topRight = 0,
-			bottomLeft = 0,
-			bottomRight = 0,
-		}),
-		new "UIGradient" {
-			Rotation = 90,
-			Transparency = if atBottom
-				then NumberSequence.new(1, 0) -- clear at the top of the strip, solid against the bar
-				else NumberSequence.new(0, 1),
-		},
+local function FadeIn(build: () -> GuiObject): CanvasGroup
+	local shown = Flux.signal(false)
+	local group = new "CanvasGroup" {
+		Name = "PageFade",
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		GroupTransparency = Flux.tween(function()
+			return if shown() then 0 else FADE_FROM
+		end, Theme.tween.slow),
+		Flux.padding(BLEED),
+		build(),
 	}
+	-- Flip on the next step, so the first frame is drawn faded and then eases in.
+	task.defer(function()
+		shown:set(true)
+	end)
+	return group
 end
 
-local function PageArea(controller: Controller.Controller): Frame
+local function PageArea(controller: Controller.Controller): ScrollingFrame
 	local state = controller.state
 
 	local scroller = new "ScrollingFrame" {
 		Name = "Pages",
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.fromScale(1, 0),
 		BackgroundTransparency = 1,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.borderStrong,
+		Flux.flex(),
 
 		new "Frame" {
 			Name = "Content",
 			Size = UDim2.fromScale(1, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.size.pagePadding, top = Theme.space.lg, bottom = Theme.space.xl }),
+			Flux.padding({ x = Theme.size.pagePadding - BLEED, top = Theme.space.lg - BLEED, bottom = Theme.space.xl - BLEED }),
 
 			-- Pages stop growing instead of stretching controls across a wide dock.
 			new "Frame" {
@@ -285,17 +264,23 @@ local function PageArea(controller: Controller.Controller): Frame
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Flux.sizeConstraint({ maxWidth = Theme.size.maxContent }),
+				Flux.sizeConstraint({ maxWidth = Theme.size.maxContent + BLEED * 2 }),
 
 				Flux.switch(state.page)({
 					Modules = function(): GuiObject
-						return ModulesPage(controller)
+						return FadeIn(function()
+							return ModulesPage(controller)
+						end)
 					end,
 					Marketplace = function(): GuiObject
-						return MarketplacePage(controller)
+						return FadeIn(function()
+							return MarketplacePage(controller)
+						end)
 					end,
 					Studio = function(): GuiObject
-						return StudioPage(controller)
+						return FadeIn(function()
+							return StudioPage(controller)
+						end)
 					end,
 				}),
 			},
@@ -308,16 +293,7 @@ local function PageArea(controller: Controller.Controller): Frame
 		scroller.CanvasPosition = Vector2.zero
 	end)
 
-	return new "Frame" {
-		Name = "PageArea",
-		Size = UDim2.fromScale(1, 0),
-		BackgroundTransparency = 1,
-		Flux.flex(),
-
-		scroller,
-		EdgeFade("FadeTop", false, FADE_TOP),
-		EdgeFade("FadeBottom", true, FADE_BOTTOM),
-	}
+	return scroller
 end
 
 --- Builds the UI into `config.widget`. Call `unmount` to remove it again.

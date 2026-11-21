@@ -1,5 +1,6 @@
 --!strict
---- A navigation entry: icon and label, filled with the selection blue when active. It can carry a live marker: a count
+--- A navigation entry in Caelum's style: the current page gets a 3x16 accent indicator on the pill's left edge, an icon in the
+--- same accent, and a primary-text label over a quiet chrome wash. It can carry a live marker: a count
 --- badge, or a spinner while one of its page's operations runs. In `compact` mode only the icon shows (the marker
 --- becomes a small dot or spinner on its corner) and the label moves to a tooltip.
 
@@ -26,6 +27,7 @@ export type Props = {
 
 local MARKER_RESERVE = 24 -- extra label room kept free for the marker when there is one
 local MARKER_HEIGHT = 18
+local INDICATOR_WIDTH = 3
 
 local function SidebarItem(props: Props): TextButton
 	local isSelected = Flux.computed(function()
@@ -37,7 +39,9 @@ local function SidebarItem(props: Props): TextButton
 
 	local item = new "TextButton" {
 		Name = `Nav_{props.label}`,
-		Size = UDim2.new(1, 0, 0, Theme.size.sidebarItem),
+		Size = Flux.tween(function()
+			return UDim2.new(1, 0, 0, if isCompact() then Theme.size.railItem else Theme.size.sidebarItem)
+		end, Theme.tween.base),
 		Text = "",
 		Flux.corner(Theme.radius.md),
 	}
@@ -54,10 +58,11 @@ local function SidebarItem(props: Props): TextButton
 		return isBusy() or badgeText() ~= nil
 	end)
 
-	-- The current page is Studio's selection blue with a light-blue icon and a white label; the others are quiet.
+	-- The current page's icon is the accent (the same colour as the indicator) and its label is primary text; the
+	-- others are quiet and brighten on hover.
 	local glyphColor = Flux.computed(function()
 		if isSelected() then
-			return C.accentText
+			return C.accentMark
 		elseif hovered() then
 			return C.text
 		end
@@ -69,10 +74,11 @@ local function SidebarItem(props: Props): TextButton
 
 	Flux.edit(item) {
 		BackgroundColor3 = Flux.tween(function()
+			-- Caelum: selected is a Chrome.Hover wash; hover is Control hover; both is Chrome.Pressed.
 			if isSelected() and hovered() then
-				return C.accentSubtleHover
+				return C.chromePressed
 			elseif isSelected() then
-				return C.accentSubtle
+				return C.chromeHover
 			elseif hovered() then
 				return C.controlHover
 			end
@@ -82,6 +88,19 @@ local function SidebarItem(props: Props): TextButton
 		Activated = function()
 			props.onClick()
 		end,
+
+		-- Active indicator: right on the pill's left edge (the straight part of the edge, clear of the rounded corners).
+		new "Frame" {
+			Name = "Indicator",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromScale(0, 0.5),
+			Size = Flux.tween(function()
+				local height = if isCompact() then 20 else 16
+				return if isSelected() then UDim2.fromOffset(INDICATOR_WIDTH, height) else UDim2.fromOffset(INDICATOR_WIDTH, 0)
+			end, Theme.tween.base),
+			BackgroundColor3 = C.accentMark,
+			Flux.corner(2),
+		},
 
 		-- Icon: pinned left, or centred when compact.
 		new "Frame" {
@@ -94,6 +113,12 @@ local function SidebarItem(props: Props): TextButton
 			end,
 			Size = UDim2.fromOffset(Theme.size.icon, Theme.size.icon),
 			BackgroundTransparency = 1,
+			-- The rail's icons are drawn larger (the glyphs are vector frames, so they scale cleanly).
+			new "UIScale" {
+				Scale = Flux.tween(function()
+					return if isCompact() then Theme.size.railIcon / Theme.size.icon else 1
+				end, Theme.tween.base),
+			},
 			Icon(props.icon, glyphColor),
 		},
 
@@ -170,7 +195,7 @@ local function SidebarItem(props: Props): TextButton
 			return new "Frame" {
 				Name = "NavMarkerCompact",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0.5, 10, 0.5, -9),
+				Position = UDim2.new(0.5, 11, 0.5, -10),
 				Size = UDim2.fromOffset(10, 10),
 				BackgroundTransparency = 1,
 				Flux.show(isBusy, function()
