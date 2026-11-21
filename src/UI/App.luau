@@ -46,18 +46,9 @@ local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "st
 	{ page = "Studio", label = "Studio", icon = "studio" },
 }
 
-local function levelColor(level: string): Color3
-	if level == "success" then
-		return C.success
-	elseif level == "warning" then
-		return C.warning
-	elseif level == "error" then
-		return C.error
-	elseif level == "info" then
-		return C.accent
-	end
-	return C.neutral
-end
+-- The logo, the nav icons and the footer dot all centre on the icon rail's centre line (half of its width).
+local LOGO_SIZE = 28
+local RAIL_CENTRE = Theme.size.sidebarCompact / 2
 
 local function Header(state: State.State): Frame
 	return new "Frame" {
@@ -69,13 +60,13 @@ local function Header(state: State.State): Frame
 			Name = "Content",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			Flux.padding({ x = Theme.space.lg }),
+			Flux.padding({ x = RAIL_CENTRE - LOGO_SIZE / 2 }),
 			Flux.list({ direction = "x", gap = 12, align = "center" }),
 
 			-- Logo: the same icon as the toolbar button.
 			new "ImageLabel" {
 				Name = "Logo",
-				Size = UDim2.fromOffset(28, 28),
+				Size = UDim2.fromOffset(LOGO_SIZE, LOGO_SIZE),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://16517502292",
 				ScaleType = Enum.ScaleType.Fit,
@@ -103,7 +94,7 @@ local function SidebarFooter(controller: Controller.Controller): Frame
 		return state.busy() ~= nil
 	end)
 	local indicatorColor = Flux.tween(function()
-		return levelColor(state.statusLine().level)
+		return Theme.levelColor(state.statusLine().level)
 	end, Theme.tween.base)
 
 	return new "Frame" {
@@ -143,7 +134,8 @@ local function SidebarFooter(controller: Controller.Controller): Frame
 				Size = UDim2.fromScale(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				BackgroundTransparency = 1,
-				Flux.padding({ x = Theme.space.sm }),
+				-- Puts the 14 px indicator's centre on the rail's centre line (the row already has 8 px of padding).
+				Flux.padding({ x = RAIL_CENTRE - 7 - Theme.space.sm }),
 				Flux.list({ direction = "x", gap = 8, align = "center" }),
 
 				new "Frame" {

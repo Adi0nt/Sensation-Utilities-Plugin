@@ -96,6 +96,7 @@ local function SelectionSummary(props: Props): Frame
 		-- Selection indicator dot: accent when something is selected.
 		new "Frame" {
 			Name = "Dot",
+			Visible = not isHeader,
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.new(0, 0, 0.5, 0),
 			Size = UDim2.fromOffset(8, 8),
@@ -107,8 +108,8 @@ local function SelectionSummary(props: Props): Frame
 
 		new "Frame" {
 			Name = "Text",
-			Position = UDim2.fromOffset(18, 0),
-			Size = UDim2.new(1, -18, 1, 0),
+			Position = UDim2.fromOffset(if isHeader then 0 else 18, 0),
+			Size = UDim2.new(1, if isHeader then 0 else -18, 1, 0),
 			BackgroundTransparency = 1,
 			Flux.list({ gap = 1, justify = "center" }),
 			lines,

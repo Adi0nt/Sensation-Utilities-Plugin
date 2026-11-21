@@ -87,6 +87,13 @@ local function verify(vw, vh, page, selectionKind)
 		end
 	end
 
+	-- The logo, the nav icons and the footer status dot share one centre line (the rail's), expanded or not
+	local function centreX(d) return d.AbsolutePosition.X + d.AbsoluteSize.X / 2 end
+	local navIcon, statusDot = find("IconSlot"), find("StatusIndicator")
+	checks += 1
+	if math.abs(centreX(logo) - centreX(navIcon)) > 1 then flag(ctx, `logo centre ({centreX(logo)}) is not over the nav icons ({centreX(navIcon)})`) end
+	if math.abs(centreX(statusDot) - centreX(navIcon)) > 1 then flag(ctx, `footer status dot ({centreX(statusDot)}) is not under the nav icons ({centreX(navIcon)})`) end
+
 	-- Content column: never wider than 640, never narrower than the window allows
 	local cx, cy, cw, ch = rect(column)
 	checks += 1

@@ -26,19 +26,6 @@ export type Props = {
 
 local MIN_HEIGHT = 40
 
-local function levelColor(level: string): Color3
-	if level == "success" then
-		return C.success
-	elseif level == "warning" then
-		return C.warning
-	elseif level == "error" then
-		return C.error
-	elseif level == "info" then
-		return C.accent
-	end
-	return C.neutral
-end
-
 local function levelBackground(level: string): Color3
 	if level == "success" then
 		return C.successSubtle
@@ -61,7 +48,7 @@ local function StatusMessage(props: Props): Frame
 		return line().busy
 	end)
 	local accentColor = Flux.tween(function()
-		return levelColor(level())
+		return Theme.levelColor(level())
 	end, Theme.tween.base)
 
 	return new "Frame" {

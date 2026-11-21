@@ -201,6 +201,21 @@ function Theme.refresh(): boolean
 	return true
 end
 
+--- A status level's colour ("idle" and anything unknown is the quiet neutral).
+function Theme.levelColor(level: string): Color3
+	local colors = Theme.color
+	if level == "success" then
+		return colors.success
+	elseif level == "warning" then
+		return colors.warning
+	elseif level == "error" then
+		return colors.error
+	elseif level == "info" then
+		return colors.accent
+	end
+	return colors.neutral
+end
+
 -- Typography ---------------------------------------------------------------------------------------------------
 -- One family and a short scale (Caelum: 11 / 12 / 13 / 14 / 20). Builder Sans is Roblox's own UI font; it has
 -- Regular, Medium and Bold, so SemiBold maps to Bold. Nothing here is smaller than 11.
