@@ -26,6 +26,9 @@ export type Props = {
 	fill: Flux.Reactive<boolean>?,
 }
 
+-- Left padding while loading: the spinner's 14 px plus its margin, so the label never moves under it.
+local SPINNER_PADDING = 32
+
 type Palette = {
 	base: Color3,
 	hover: Color3,
@@ -148,7 +151,7 @@ local function Button(props: Props): TextButton
 
 		-- Room for the spinner on the left while loading.
 		Flux.padding(function()
-			return { left = if isLoading() then 32 else 16, right = 16 }
+			return { left = if isLoading() then SPINNER_PADDING else 16, right = 16 }
 		end),
 		Flux.stroke({ thickness = 1, color = strokeColor }),
 
@@ -156,7 +159,8 @@ local function Button(props: Props): TextButton
 			return new "Frame" {
 				Name = "Spinner",
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = UDim2.new(0, 10, 0.5, 0),
+				-- UIPadding moves children too, so the spinner is offset back to sit in the padding, 10 px from the edge.
+				Position = UDim2.new(0, 10 - SPINNER_PADDING, 0.5, 0),
 				Size = UDim2.fromOffset(14, 14),
 				BackgroundTransparency = 1,
 				LoadingIndicator({ color = textColor, size = 14 }),

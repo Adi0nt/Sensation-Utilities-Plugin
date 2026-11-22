@@ -37,7 +37,7 @@ at a narrow and a wide size helps most).
 - [ ] Hover and press on buttons, nav items, dropdown rows: short colour change, never laggy.
 - [ ] Hover a **disabled** button for ~0.5 s: a tooltip explains why. It is not clipped by the scroll area.
 - [ ] Dropdown menu opens under the trigger (flips above near the bottom), scrolls if long, closes on pick or click-away.
-- [ ] Typing in the Asset ID field: letters are stripped, error text appears for `0`, Enter triggers Insert Latest.
+- [ ] Typing in the Asset ID field: letters are stripped, error text appears for `0`, Enter triggers the Insert button.
 - [ ] Selecting/deselecting/renaming things in Explorer updates the selection bar immediately.
 
 ## 3. Modules
@@ -47,15 +47,19 @@ at a narrow and a wide size helps most).
 - [ ] **Bypass** (Append): a `MainModule` appears wrapping the original.
 - [ ] **Unbypass** on a bypassed module extracts the original; on a plain one it warns it was copied as-is.
 - [ ] **Sandbox** / **Unsandbox** on a model: descendants change too (check `Sandboxed` / `Capabilities`).
-- [ ] **Clean Selected Sounds** on a Sound with a broken/private id clears `SoundId` and the panel shows the count.
-- [ ] **Insert Preset** (Advanced and Basic) creates `MainModule` with the expected source.
+- [ ] **Clean Unloaded Sounds** on a Sound with a broken/private id clears `SoundId` and the panel shows the count.
+- [ ] **Scan Selection** on a model with some broken asset ids (a MeshPart, a Decal, a Sound): the broken ones are listed with where they are used, working ones are not, and nothing has changed yet. The status line says how many could not be loaded and how many could not be checked.
+- [ ] Untick one asset, press **Clean Selected**: only the ticked ones lose their id, they leave the list, and **Ctrl+Z** brings them back in one step.
+- [ ] Tick "Remove the instances instead of clearing the property": the button becomes **Remove Selected**, a confirmation names how many instances (and the status bar says it is waiting for you); Cancel changes nothing, Remove deletes them, and Ctrl+Z restores them.
+- [ ] Scan something that only uses assets you own and can load: nothing is listed. (A plugin cannot ask Roblox whether *other* people can load an asset, only whether Studio can.)
+- [ ] **Insert Preset** (Advanced and Basic) creates `MainModule` with the expected source. Edit a script in `presets.rbxm` (or push a new one), press **Reload** in Module Presets: the list and description update without restarting Studio.
 - [ ] Select 11+ ModuleScripts and press Bypass: a confirmation appears; Cancel changes nothing.
 - [ ] **Ctrl+Z** after each of the above undoes it in one step (this is the unverified `ChangeHistoryService` part).
 
 ## 4. Marketplace
 
-- [ ] Insert Latest with a valid asset ID inserts it into every selected object; a bad ID shows an error, not a stuck spinner.
-- [ ] Insert Specific Version inserts that version; a blank/0 version keeps the button disabled.
+- [ ] With Version set to Latest, the single button reads "Insert latest version", no version field shows, and it inserts the asset into every selected object; a bad ID shows an error, not a stuck spinner.
+- [ ] Choosing Specific version shows a version field and the button reads "Insert version N" as you type; a blank/0 version keeps it disabled, and switching back to Latest ignores the typed number.
 - [ ] While downloading, buttons show a spinner and a second click does nothing.
 - [ ] **Upload to Roblox** opens Studio's upload dialog; **Save to File** opens the save dialog and reports saved/cancelled.
 

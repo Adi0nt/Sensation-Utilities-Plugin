@@ -154,6 +154,33 @@ local function makeMethodStore()
 	return store
 end
 
+local function lf(text) return (string.gsub(text, "\r\n", "\n")) end
+
+--- The real preset sources from presets/, so the tests exercise what ships.
+local function makePresetStore()
+	local store = Presets.new()
+	store:set({
+		["Advanced Module"] = { source = lf(fs.readFile("presets/Advanced Module.luau")), description = "Advanced description" },
+		["Basic Module"] = { source = lf(fs.readFile("presets/Basic Module.luau")), description = "Basic description" },
+	})
+	return store
+end
+
+--- A stand-in for ContentProvider: `statuses[contentId]` is the final status (anything missing loads fine).
+local function makeContentProvider()
+	local provider = { statuses = {}, calls = {}, batches = 0 }
+	function provider.PreloadAsync(_, list, callback)
+		provider.batches += 1
+		for _, item in list do
+			table.insert(provider.calls, item)
+			if callback then
+				callback(item, provider.statuses[item] or Enum.AssetFetchStatus.Success)
+			end
+		end
+	end
+	return provider
+end
+
 local function newWorld()
 	local world = {}
 	world.workspaceFolder = Instance.new("Folder")
@@ -161,12 +188,17 @@ local function newWorld()
 	world.workspaceFolder.Parent = engine.workspace
 	world.methods = makeMethodStore()
 	world.reloaded = 0
+	world.presets = makePresetStore()
+	world.presetsReloaded = 0
+	world.contentProvider = makeContentProvider()
 	world.operations = Operations.new({
 		plugin = pluginFake,
 		selection = Selection,
 		history = History.new(ChangeHistory, log),
 		log = log,
 		methods = world.methods,
+		presets = world.presets,
+		contentProvider = world.contentProvider,
 		newIndex = function(inst, prop, value) inst[prop] = value end,
 	})
 	engine:setViewport(Vector2.new(520, 760))
@@ -178,11 +210,16 @@ local function newWorld()
 		widget = world.screen,
 		operations = world.operations,
 		methods = world.methods,
+		presets = world.presets,
 		log = log,
 		commit = "main",
 		reloadMethods = function()
 			world.reloaded += 1
 			return world.methods:names() and #world.methods:names(), nil
+		end,
+		reloadPresets = function()
+			world.presetsReloaded += 1
+			return #world.presets:names(), nil
 		end,
 	})
 	settle()
@@ -363,7 +400,7 @@ test("Asset cleaner clears unloaded sounds and shows the count", function()
 	local holder = Instance.new("Folder"); holder.Parent = w.workspaceFolder
 	local s1 = Instance.new("Sound"); s1.SoundId = "rbxassetid://1"; s1.Parent = holder
 	Selection:Set({ holder }); settle()
-	click(button(w.screen, "Clean Selected Sounds")); settle()
+	click(button(w.screen, "Clean Unloaded Sounds")); settle()
 	local line = w.app.state.statusLine:peek()
 	print("        cleaner status:", line.level, line.text)
 	check(line.level == "success" or line.level == "info", "cleaner should not error: " .. line.text)
@@ -378,12 +415,228 @@ test("Module preset inserts a MainModule with the unchanged source", function()
 	local main = target:FindFirstChild("MainModule")
 	check(main, "MainModule missing")
 	eq(main.Source, (string.gsub(fs.readFile("tests/golden/advanced_module.txt"), "\r\n", "\n")), "advanced preset source")
-	click(find(w.screen, "Segment_Basic Module")); settle()
+	w.app.state.preset:set("Basic Module"); settle()
 	click(button(w.screen, "Insert Preset")); settle()
 	local mains = {}
 	for _, c in target:GetChildren() do if c.Name == "MainModule" then table.insert(mains, c) end end
 	eq(#mains, 2)
 	eq(mains[2].Source, (string.gsub(fs.readFile("tests/golden/basic_module.txt"), "\r\n", "\n")), "basic preset source")
+	teardown(w)
+end)
+
+test("presets come from the preset store: list, description, Reload, and an empty store", function()
+	local w = newWorld()
+	eq(table.concat(w.app.state.presetNames:peek(), ","), "Advanced Module,Basic Module", "sorted names from the store")
+	eq(w.app.state.preset:peek(), "Advanced Module", "Advanced Module is the default while it exists")
+	check(text(w.screen, "Advanced description"), "the description under the picker comes from the preset")
+	w.app.state.preset:set("Basic Module"); settle()
+	check(text(w.screen, "Basic description"), "the description follows the chosen preset")
+	-- editing presets.rbxm and pressing Reload brings in a new preset and keeps the choice
+	local all = {}
+	for _, name in w.presets:names() do all[name] = { source = w.presets:source(name), description = w.presets:description(name) } end
+	all["Brand New"] = { source = "return 'new'", description = "Added by a new presets.rbxm" }
+	w.presets:set(all)
+	click(find(w.screen, "PresetRow"):FindFirstChild("Button", true)); settle()
+	eq(w.presetsReloaded, 1, "Reload asked the loader once")
+	eq(table.concat(w.app.state.presetNames:peek(), ","), "Advanced Module,Basic Module,Brand New")
+	eq(w.app.state.preset:peek(), "Basic Module", "the chosen preset stays after a reload")
+	-- the new preset can be inserted, with its own source
+	local target = Instance.new("Folder"); target.Parent = w.workspaceFolder
+	Selection:Set({ target }); settle()
+	w.app.state.preset:set("Brand New"); settle()
+	click(button(w.screen, "Insert Preset")); settle()
+	eq(target:FindFirstChild("MainModule").Source, "return 'new'", "new preset source inserted")
+	-- an empty store disables Insert with a reason
+	w.presets:set({})
+	w.app.state.refreshPresets(); settle()
+	eq(w.app.state.preset:peek(), "", "no preset to fall back to")
+	local reason = w.app.state.gate.insertPreset()
+	check(reason ~= nil and reason:find("No presets"), "an empty store explains itself")
+	teardown(w)
+end)
+
+test("inserting a preset that is no longer loaded reports a clear error and creates nothing", function()
+	local w = newWorld()
+	local target = Instance.new("Folder"); target.Parent = w.workspaceFolder
+	Selection:Set({ target }); settle()
+	local result = w.operations.insertPreset("Does Not Exist")
+	eq(result.ok, false)
+	check(result.message:find("not loaded"), result.message)
+	eq(#target:GetChildren(), 0, "nothing was created")
+	teardown(w)
+end)
+
+--- A small tree with known asset references: two uses of 111 (broken), one of 222 (fine), one of 333 (broken sound),
+--- one old-style URL for 444 (times out), and ids the scan must ignore.
+local function makeAssetTree(w)
+	local holder = Instance.new("Folder"); holder.Name = "Assets"; holder.Parent = w.workspaceFolder
+	local mesh = Instance.new("MeshPart"); mesh.Name = "Mesh"; mesh.MeshId = "rbxassetid://111"; mesh.TextureID = "rbxassetid://222"; mesh.Parent = holder
+	local decal = Instance.new("Decal"); decal.Name = "Decal"; decal.Texture = "rbxassetid://111"; decal.Parent = holder
+	local sound = Instance.new("Sound"); sound.Name = "Sound"; sound.SoundId = "rbxassetid://333"; sound.Parent = holder
+	local old = Instance.new("Decal"); old.Name = "OldUrl"; old.Texture = "http://www.roblox.com/asset/?id=444"; old.Parent = holder
+	local builtin = Instance.new("ImageLabel"); builtin.Name = "Builtin"; builtin.Image = "rbxasset://textures/face.png"; builtin.Parent = holder
+	local empty = Instance.new("Decal"); empty.Name = "Empty"; empty.Parent = holder
+	local Failure, TimedOut = Enum.AssetFetchStatus.Failure, Enum.AssetFetchStatus.TimedOut
+	w.contentProvider.statuses["rbxassetid://111"] = Failure
+	w.contentProvider.statuses["rbxassetid://333"] = Failure
+	w.contentProvider.statuses["rbxassetid://444"] = TimedOut
+	return { holder = holder, mesh = mesh, decal = decal, sound = sound, old = old, builtin = builtin, empty = empty }
+end
+
+local function brokenRows(w)
+	local rows = {}
+	for _, d in w.screen:GetDescendants() do
+		if d.Name == "BrokenAsset" and d.ClassName == "Frame" then table.insert(rows, d) end
+	end
+	return rows
+end
+
+test("asset cleaner: a scan lists the assets that fail to load, never changing anything", function()
+	local w = newWorld()
+	local t = makeAssetTree(w)
+	check(w.app.state.gate.scanAssets() ~= nil, "scanning needs a selection")
+	check(button(w.screen, "Scan Selection"), "scan button")
+	check(not find(w.screen, "BrokenAssetsSection"), "no list before the first scan")
+	Selection:Set({ t.holder }); settle()
+	eq(w.app.state.gate.scanAssets(), nil, "scan available with a selection")
+	click(button(w.screen, "Scan Selection")); settle()
+	local report = w.app.state.cleanReport:peek()
+	check(report, "scan produced a report")
+	eq(report.assets, 4, "four distinct assets (111, 222, 333, 444)")
+	eq(report.references, 5, "five asset references; engine files and empty ids are ignored")
+	eq(report.unverified, 1, "the timed-out asset is not offered for cleaning")
+	eq(#report.broken, 2, "two assets failed")
+	eq(report.broken[1].id, 111, "most-used first")
+	eq(#report.broken[1].references, 2)
+	eq(report.broken[2].id, 333)
+	local line = w.app.state.statusLine:peek()
+	eq(line.level, "warning", line.text)
+	check(line.text:find("2 of 4 assets could not be loaded"), line.text)
+	check(line.text:find("1 could not be checked"), line.text)
+	-- nothing was touched
+	eq(t.mesh.MeshId, "rbxassetid://111"); eq(t.decal.Texture, "rbxassetid://111"); eq(t.sound.SoundId, "rbxassetid://333")
+	-- the list: both ticked, the legacy URL was checked through its normal id
+	eq(#brokenRows(w), 2, "two rows")
+	check(text(w.screen, "rbxassetid://111") and text(w.screen, "rbxassetid://333"), "ids are shown")
+	check(text(w.screen, "2 uses · Decal.Texture · MeshPart.MeshId"), "where it is used (ties are alphabetical)")
+	check(text(w.screen, "2 of 2 selected"), "a fresh scan ticks everything")
+	check(table.find(w.contentProvider.calls, "rbxassetid://444"), "old-style URLs are checked by id")
+	eq(w.contentProvider.batches, 1, "one batch for a small scan")
+	teardown(w)
+end)
+
+test("asset cleaner: tick boxes, select all / none, and the clean button follows the ticks", function()
+	local w = newWorld()
+	local t = makeAssetTree(w)
+	Selection:Set({ t.holder }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	eq(w.app.state.gate.cleanAssets(), nil, "clean available with everything ticked")
+	click(find(brokenRows(w)[1], "Checkbox")); settle()
+	check(text(w.screen, "1 of 2 selected"), "one ticked off")
+	eq(w.app.state.cleanPicked:peek()[111], nil, "the first row is unticked")
+	check(not button(w.screen, "Select None"), "with one unticked the button offers Select All")
+	click(button(w.screen, "Select All")); settle()
+	check(text(w.screen, "2 of 2 selected"), "all ticked again")
+	click(button(w.screen, "Select None")); settle()
+	check(text(w.screen, "0 of 2 selected"), "none")
+	local reason = w.app.state.gate.cleanAssets()
+	check(reason ~= nil and reason:find("Tick at least one"), "clean explains why it is off")
+	teardown(w)
+end)
+
+test("asset cleaner: Clean Selected blanks the property of what is ticked, as one undo step", function()
+	local w = newWorld()
+	local t = makeAssetTree(w)
+	Selection:Set({ t.holder }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	click(find(brokenRows(w)[2], "Checkbox")); settle() -- untick 333, the sound
+	table.clear(recordings)
+	click(button(w.screen, "Clean Selected")); settle()
+	eq(t.mesh.MeshId, "", "mesh id cleared")
+	eq(t.decal.Texture, "", "decal texture cleared")
+	eq(t.mesh.TextureID, "rbxassetid://222", "the working texture is untouched")
+	eq(t.sound.SoundId, "rbxassetid://333", "the unticked sound is untouched")
+	check(t.mesh.Parent and t.decal.Parent, "instances are kept by default")
+	eq(#recordings, 1, "one undo step")
+	eq(recordings[1].op, "Commit")
+	local line = w.app.state.statusLine:peek()
+	eq(line.level, "success", line.text)
+	check(line.text:find("Cleared 2 references to 1 asset"), line.text)
+	eq(#brokenRows(w), 1, "cleaned assets leave the list")
+	check(text(w.screen, "rbxassetid://333") and not text(w.screen, "rbxassetid://111"), "only the sound is left")
+	teardown(w)
+end)
+
+test("asset cleaner: removing the holding instances always asks first", function()
+	local w = newWorld()
+	local t = makeAssetTree(w)
+	Selection:Set({ t.holder }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	eq(w.app.state.cleanRemove:peek(), false, "clearing the property is the default")
+	local removeBox
+	for _, d in w.screen:GetDescendants() do
+		if d.Name == "Checkbox" and d.ClassName == "TextButton" then
+			local label = find(d, "Label", "TextLabel")
+			if label and label.Text:find("^Remove the instances") then removeBox = d end
+		end
+	end
+	check(removeBox, "the remove option is offered")
+	check(button(w.screen, "Clean Selected") and not button(w.screen, "Remove Selected"), "the button says Clean while clearing")
+	click(removeBox); settle()
+	eq(w.app.state.cleanRemove:peek(), true, "ticking it switches to removing")
+	check(button(w.screen, "Remove Selected") and not button(w.screen, "Clean Selected"), "the button says Remove once removing is chosen")
+	click(button(w.screen, "Remove Selected")); settle()
+	check(w.app.state.confirm:peek() ~= nil, "removing asks for confirmation")
+	check(find(w.screen, "ConfirmationDialog"), "dialog shown")
+	check(text(w.screen, "This removes 3 instances that use the ticked assets, along with anything inside them. You can undo it with Ctrl+Z."), "the dialog says how many and reads correctly")
+	eq(w.app.state.statusLine:peek().text, "Waiting for your answer...", "the status bar does not claim to be working while the dialog is open")
+	click(button(w.screen, "Cancel")); settle()
+	check(t.mesh.Parent and t.decal.Parent and t.sound.Parent, "cancel removed nothing")
+	eq(t.mesh.MeshId, "rbxassetid://111", "cancel changed nothing")
+	click(button(w.screen, "Remove Selected")); settle()
+	click(button(find(w.screen, "ConfirmationDialog"), "Remove")); settle()
+	check(t.mesh.Parent == nil and t.decal.Parent == nil and t.sound.Parent == nil, "the instances that held broken assets are gone")
+	check(t.old.Parent ~= nil and t.builtin.Parent ~= nil, "everything else stays")
+	local line = w.app.state.statusLine:peek()
+	eq(line.level, "success", line.text)
+	check(line.text:find("Removed 3 instances that used 2 assets"), line.text)
+	teardown(w)
+end)
+
+test("asset cleaner: a reference that changed since the scan is left alone and reported", function()
+	local w = newWorld()
+	local t = makeAssetTree(w)
+	Selection:Set({ t.holder }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	t.decal.Texture = "rbxassetid://999" -- the user replaced it after the scan
+	click(button(w.screen, "Clean Selected")); settle()
+	eq(t.decal.Texture, "rbxassetid://999", "the replaced reference survives")
+	eq(t.mesh.MeshId, "", "the others were cleaned")
+	local line = w.app.state.statusLine:peek()
+	eq(line.level, "warning", line.text)
+	check(line.text:find("had already changed"), line.text)
+	teardown(w)
+end)
+
+test("asset cleaner: nothing to find, and a failing content request, are reported without throwing", function()
+	local w = newWorld()
+	local bare = Instance.new("Folder"); bare.Parent = w.workspaceFolder
+	Instance.new("Part").Parent = bare
+	Selection:Set({ bare }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	eq(w.app.state.statusLine:peek().level, "info", "no references is not an error")
+	check(w.app.state.statusLine:peek().text:find("No asset references"), w.app.state.statusLine:peek().text)
+	check(not find(w.screen, "BrokenAssetsSection"), "no list")
+	-- a provider that errors: every asset stays unverified and nothing is offered for cleaning
+	local t = makeAssetTree(w)
+	w.contentProvider.PreloadAsync = function() error("network down") end
+	Selection:Set({ t.holder }); settle()
+	click(button(w.screen, "Scan Selection")); settle()
+	local report = w.app.state.cleanReport:peek()
+	eq(#report.broken, 0, "no verdict, nothing to clean")
+	eq(report.unverified, 4, "every asset is unverified")
+	check(w.app.state.statusLine:peek().level ~= "error", "a failed request does not break the scan")
+	eq(t.mesh.MeshId, "rbxassetid://111", "nothing was changed")
 	teardown(w)
 end)
 
@@ -407,21 +660,41 @@ test("Marketplace: digits-only inputs, validation messages, latest vs versioned 
 	getObjectsResult = function()
 		local part = Instance.new("Part"); part.Name = "Loaded"; return { part }
 	end
-	click(button(w.screen, "Insert Latest")); settle()
+	-- one Insert button; by default it loads the latest version, says so, and there is no version field to confuse
+	eq(w.app.state.assetVersionMode:peek(), "Latest", "defaults to the latest version")
+	check(text(w.screen, "Loads the newest version published for the asset."), "latest mode explains itself")
+	check(not text(w.screen, "Version number"), "no version field while Latest is chosen")
+	check(not button(w.screen, "Insert Latest") and not button(w.screen, "Insert Specific Version"), "the two old buttons are gone")
+	click(button(w.screen, "Insert latest version")); settle()
 	eq(fetched[#fetched], "https://assetdelivery.roblox.com/v1/asset/?id=555", "latest url")
 	check(target:FindFirstChild("Loaded"), "asset inserted into selection")
-	-- version field
+	-- choosing "Specific version" reveals the version field, and the button names the version it will load
+	click(find(w.screen, "Segment_Specific version")); settle()
+	eq(w.app.state.assetVersionMode:peek(), "Specific")
+	check(text(w.screen, "Version number"), "version field appears")
+	check(not text(w.screen, "Loads the newest version published for the asset."), "the latest-mode note is replaced")
+	check(button(w.screen, "Insert version"), "button asks for a version")
+	check(w.app.state.gate.insert() ~= nil, "specific mode needs a version")
+	check(button(w.screen, "Insert version").Text == "Insert version", "label before a version is typed")
 	local versionBox
 	for _, ti in findAll(w.screen, function(d) return d.Name == "TextInput" end) do
 		local f = find(ti, "Field", "TextBox"); if f ~= idBox then versionBox = f end
 	end
+	check(versionBox, "version box")
 	versionBox.Text = "7"; settle()
-	eq(w.app.state.gate.insertVersion(), nil, "version insert enabled")
-	click(button(w.screen, "Insert Specific Version")); settle()
+	eq(w.app.state.gate.insert(), nil, "version insert enabled")
+	check(button(w.screen, "Insert version 7"), "button names the version it will load")
+	click(button(w.screen, "Insert version 7")); settle()
 	eq(fetched[#fetched], "https://assetdelivery.roblox.com/v1/asset/?id=555&version=7", "versioned url")
+	-- a typed version is ignored in Latest mode (it cannot be loaded by accident), and kept for when it is chosen again
+	click(find(w.screen, "Segment_Latest")); settle()
+	eq(w.app.state.assetVersion:peek(), "7", "the typed version is kept")
+	check(button(w.screen, "Insert latest version"), "label back to latest")
+	click(button(w.screen, "Insert latest version")); settle()
+	eq(fetched[#fetched], "https://assetdelivery.roblox.com/v1/asset/?id=555", "latest again, version ignored")
 	-- failure surfaces as an error, not a throw
 	getObjectsResult = nil
-	click(button(w.screen, "Insert Latest")); settle()
+	click(button(w.screen, "Insert latest version")); settle()
 	eq(w.app.state.statusLine:peek().level, "error", "fetch failure is reported")
 	getObjectsResult = nil
 	teardown(w)
@@ -497,11 +770,16 @@ test("no duplicate submissions: clicks while a yielding action runs are ignored"
 		coroutine.yield()
 		local part = Instance.new("Part"); part.Name = "Slow"; return { part }
 	end
-	local btn = button(w.screen, "Insert Latest")
+	local btn = button(w.screen, "Insert latest version")
 	click(btn); settle()
 	eq(w.app.state.busy:peek(), "latest", "busy while the asset downloads")
-	check(w.app.state.gate.insertLatest() ~= nil, "buttons gate themselves while busy")
-	click(btn); click(btn); click(button(w.screen, "Insert Specific Version")); settle()
+	-- the spinner sits in the button's left padding, clear of the label (UIPadding shifts children, so it is offset back)
+	local spinner = find(btn, "Spinner")
+	check(spinner, "a loading button shows its spinner")
+	check(spinner.AbsolutePosition.X >= btn.AbsolutePosition.X, "the spinner is inside the button")
+	check(spinner.AbsolutePosition.X + spinner.AbsoluteSize.X <= btn.AbsolutePosition.X + 32, "the spinner does not overlap the label")
+	check(w.app.state.gate.insert() ~= nil, "the button gates itself while busy")
+	click(btn); click(btn); settle()
 	eq(#fetched - before, 1, "exactly one download started")
 	eq(#pending, 1, "exactly one pending request")
 	-- other actions are blocked too, and the status shows progress

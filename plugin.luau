@@ -2,7 +2,8 @@
 --- Sensation Utilities: plugin lifecycle.
 ---
 --- This file is fetched and run by `loader.luau` / `Plugin.rbxmx`. It only wires things together:
----   * downloads `packages.rbxm` (Maid, RawLib), `methods.rbxm` (bypass methods) and `ui.rbxm` (Flux + the UI),
+---   * downloads `packages.rbxm` (Maid, RawLib), `methods.rbxm` (bypass methods), `presets.rbxm` (module presets)
+---     and `ui.rbxm` (Flux + the UI),
 ---   * creates the toolbar button and the dockable widget,
 ---   * mounts the Flux UI into the widget and unmounts it again when the plugin unloads.
 ---
@@ -15,7 +16,7 @@ local coreGui = game:GetService("CoreGui")
 
 local REPO = "Adi0nt/Sensation-Utilities-Plugin"
 -- Development only: `dev/SensationDev.lua` sets `shared.SensationDevBase` (e.g. "http://localhost:8000/") so the
--- packages, methods and UI are served from a local checkout instead of GitHub. Normal installs never set it.
+-- packages, methods, presets and UI are served from a local checkout instead of GitHub. Normal installs never set it.
 local devBase = (shared :: any).SensationDevBase
 local RAW_MAIN = if type(devBase) == "string" then devBase else `https://github.com/{REPO}/raw/refs/heads/main/`
 local RAW_FRESH = if type(devBase) == "string"
@@ -175,6 +176,7 @@ local History = require((uiRoot :: any).Core.History) :: any
 local Methods = require((uiRoot :: any).Core.Methods) :: any
 local Http = require((uiRoot :: any).Core.Http) :: any
 local Operations = require((uiRoot :: any).Core.Operations) :: any
+local Presets = require((uiRoot :: any).Core.Presets) :: any
 local App = require((uiRoot :: any).UI.App) :: any
 local Theme = require((uiRoot :: any).UI.Theme) :: any
 
@@ -208,6 +210,37 @@ if loadedCount then
 	println(`Loaded {loadedCount} method(s).`)
 else
 	warnln("Critical Error: Methods failed to load.")
+end
+
+-- Module presets ---------------------------------------------------------------------------------------------------
+
+local presets = Presets.new()
+
+--- (Re)downloads presets.rbxm into the preset store. Yields. Returns the preset count, or `nil, reason`.
+local function loadPresets(): (number?, string?)
+	local body = Http.get(`{RAW_FRESH}presets.rbxm?t={os.time()}`, Log)
+	if body == nil then
+		return nil, "The download failed. Check your connection."
+	end
+
+	local found = Presets.parse(deserializeInstancesAsync(buffer.fromstring(body)))
+	local count = 0
+	for _ in found do
+		count += 1
+	end
+	if count == 0 then
+		return nil, "The download contained no presets."
+	end
+	presets:set(found)
+	return count, nil
+end
+
+println("Loading presets...")
+local loadedPresets = loadPresets()
+if loadedPresets then
+	println(`Loaded {loadedPresets} preset(s).`)
+else
+	warnln("Presets failed to load. Module presets are unavailable until you press Reload.")
 end
 
 -- Widget -----------------------------------------------------------------------------------------------------------
@@ -251,6 +284,8 @@ local operations = Operations.new({
 	history = History.new(changeHistoryService, Log),
 	log = Log,
 	methods = methods,
+	presets = presets,
+	contentProvider = game:GetService("ContentProvider"),
 	newIndex = rawLib.instance_newindex,
 })
 
@@ -259,12 +294,20 @@ local function mountApp(commit: string): any
 		widget = widget,
 		operations = operations,
 		methods = methods,
+		presets = presets,
 		log = Log,
 		commit = commit,
 		reloadMethods = function()
 			local count, reason = loadMethods()
 			if count then
 				Log.info(`Loaded {count} method(s).`)
+			end
+			return count, reason
+		end,
+		reloadPresets = function()
+			local count, reason = loadPresets()
+			if count then
+				Log.info(`Loaded {count} preset(s).`)
 			end
 			return count, reason
 		end,

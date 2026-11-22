@@ -1,5 +1,6 @@
 --!strict
---- Marketplace: insert an asset (latest or a specific version) and publish / export the selection.
+--- Marketplace: insert an asset (one Insert button; the Version control picks the latest or a specific version)
+--- and publish / export the selection.
 
 local Flux = require("../../Flux")
 local Button = require("../Components/Button")
@@ -7,9 +8,12 @@ local Controller = require("./Controller")
 local Form = require("../Components/Form")
 local Panel = require("../Components/Panel")
 local SectionHeader = require("../Components/SectionHeader")
+local SegmentedControl = require("../Components/SegmentedControl")
 local SelectionSummary = require("../Components/SelectionSummary")
+local State = require("../State")
 local TextInput = require("../Components/TextInput")
 local Theme = require("../Theme")
+local Validation = require("../../Core/Validation")
 
 local new = Flux.new
 local Note, ButtonRow = Form.Note, Form.ButtonRow
@@ -26,6 +30,15 @@ local function MarketplacePage(controller: Controller.Controller): Frame
 		return state.busy() ~= nil
 	end
 
+	-- The button names exactly what will be loaded, so there is nothing to guess.
+	local function insertLabel(): string
+		if state.assetVersionMode() ~= "Specific" then
+			return "Insert latest version"
+		end
+		local version = Validation.parseVersion(state.assetVersion())
+		return if version ~= nil then `Insert version {version}` else "Insert version"
+	end
+
 	local insertion = Panel({
 		title = "Asset Insertion",
 		description = "Insert an asset from Roblox into every selected object.",
@@ -38,41 +51,55 @@ local function MarketplacePage(controller: Controller.Controller): Frame
 				helper = "The number from the asset's URL.",
 				disabled = isBusy,
 				onSubmit = function()
-					if state.gate.insertLatest() == nil then
-						actions.insertLatest()
+					if state.gate.insert() == nil then
+						actions.insert()
 					end
 				end,
 			}),
-			TextInput.NumberInput({
-				label = "Version (optional)",
-				placeholder = "Latest",
-				value = state.assetVersion,
-				error = state.assetVersionError,
-				helper = "Leave empty to use the latest version.",
+
+			-- One choice, one button: which version to load is picked here, and the button says what it will do.
+			SegmentedControl({
+				label = "Version",
+				options = {
+					{ value = "Latest" :: State.VersionMode, label = "Latest" },
+					{ value = "Specific" :: State.VersionMode, label = "Specific version" },
+				},
+				value = state.assetVersionMode,
 				disabled = isBusy,
 			}),
+			Flux.show(function()
+				return state.assetVersionMode() == "Specific"
+			end, function()
+				return TextInput.NumberInput({
+					label = "Version number",
+					placeholder = "e.g. 12",
+					value = state.assetVersion,
+					error = state.assetVersionError,
+					helper = "A whole number, starting at 1.",
+					disabled = isBusy,
+					onSubmit = function()
+						if state.gate.insert() == nil then
+							actions.insert()
+						end
+					end,
+				})
+			end, function()
+				return Note("Loads the newest version published for the asset.")
+			end),
+
 			ButtonRow({
 				Button({
-					label = "Insert Latest",
+					label = insertLabel,
 					fill = state.stackCards,
 					variant = "primary",
-					onClick = actions.insertLatest,
-					loading = isRunning("latest"),
-					disabled = function()
-						return state.gate.insertLatest() ~= nil
+					onClick = actions.insert,
+					loading = function()
+						return state.busy() == "latest" or state.busy() == "version"
 					end,
-					tooltip = state.gate.insertLatest,
-				}),
-				Button({
-					label = "Insert Specific Version",
-					fill = state.stackCards,
-					variant = "secondary",
-					onClick = actions.insertVersion,
-					loading = isRunning("version"),
 					disabled = function()
-						return state.gate.insertVersion() ~= nil
+						return state.gate.insert() ~= nil
 					end,
-					tooltip = state.gate.insertVersion,
+					tooltip = state.gate.insert,
 				}),
 			}),
 		},

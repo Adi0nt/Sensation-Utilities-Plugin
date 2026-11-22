@@ -84,4 +84,38 @@ function Format.oneLine(summary: Summary): string
 	return `{summary.title} · {summary.detail}`
 end
 
+--- A property of a class that holds an asset reference.
+export type Use = { className: string, property: string }
+
+--- "MeshPart.MeshId ×3 · Decal.Texture" for the places an asset is used: commonest first (ties alphabetical), at most
+--- two shown and the rest as "+N more". A single use has no count.
+function Format.assetUses(uses: { Use }): string
+	local counts: { [string]: number } = {}
+	local order: { string } = {}
+	for _, use in uses do
+		local key = `{use.className}.{use.property}`
+		if counts[key] == nil then
+			counts[key] = 0
+			table.insert(order, key)
+		end
+		counts[key] += 1
+	end
+	table.sort(order, function(a, b)
+		if counts[a] ~= counts[b] then
+			return counts[a] > counts[b]
+		end
+		return a < b
+	end)
+
+	local parts: { string } = {}
+	for index, key in order do
+		if index > MAX_CLASSES_SHOWN then
+			table.insert(parts, `+{#order - MAX_CLASSES_SHOWN} more`)
+			break
+		end
+		table.insert(parts, if counts[key] > 1 then `{key} ×{counts[key]}` else key)
+	end
+	return table.concat(parts, " · ")
+end
+
 return Format

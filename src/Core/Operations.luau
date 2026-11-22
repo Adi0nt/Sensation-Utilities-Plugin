@@ -19,6 +19,10 @@ export type Operations = {
 	sandbox: () -> Types.Result,
 	unsandbox: () -> Types.Result,
 	cleanSounds: () -> Types.Result,
+	--- Looks for asset references in the selection that Studio cannot load. Yields. `onProgress(done, total)` reports it.
+	scanAssets: (onProgress: ((done: number, total: number) -> ())?) -> (Types.Result, Types.ScanReport?),
+	--- Clears the given broken assets: blanks their properties, or removes the instances that hold them.
+	cleanAssets: (broken: { Types.BrokenAsset }, removeInstances: boolean) -> Types.Result,
 	insertPreset: (preset: Types.PresetName) -> Types.Result,
 
 	-- Marketplace (insertAsset, saveSelection yield)
@@ -55,6 +59,12 @@ function Operations.new(env: Types.Env): Operations
 		end,
 		cleanSounds = function()
 			return Cleaner.cleanSounds(env)
+		end,
+		scanAssets = function(onProgress)
+			return Cleaner.scan(env, onProgress)
+		end,
+		cleanAssets = function(broken, removeInstances)
+			return Cleaner.clean(env, broken, removeInstances)
 		end,
 		insertPreset = function(preset)
 			return Presets.insert(env, preset)

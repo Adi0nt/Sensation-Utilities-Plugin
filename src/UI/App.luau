@@ -28,11 +28,14 @@ export type Config = {
 	widget: DockWidgetPluginGui,
 	operations: Operations.Operations,
 	methods: Types.MethodStore,
+	presets: Types.PresetStore,
 	log: Types.Log,
 	--- The commit / version label shown in the header (updated later through `state.commit`).
 	commit: string,
 	--- Re-downloads the bypass methods. Yields. Returns the method count, or `nil, reason`.
 	reloadMethods: () -> (number?, string?),
+	--- Re-downloads the module presets. Yields. Returns the preset count, or `nil, reason`.
+	reloadPresets: () -> (number?, string?),
 }
 
 export type App = {
@@ -56,7 +59,7 @@ local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "st
 		page = "Modules",
 		label = "Modules",
 		icon = "modules",
-		owns = keys({ "bypass", "unbypass", "sandbox", "unsandbox", "clean", "preset", "reload" }),
+		owns = keys({ "bypass", "unbypass", "sandbox", "unsandbox", "clean", "scan", "cleanAssets", "preset", "reload", "reloadPresets" }),
 	},
 	{ page = "Marketplace", label = "Marketplace", icon = "market", owns = keys({ "latest", "version", "upload", "save" }) },
 	{
@@ -314,6 +317,7 @@ local function mount(config: Config): App
 				selection = config.operations.env.selection,
 				operations = config.operations,
 				methods = config.methods,
+				presets = config.presets,
 				widget = config.widget,
 				commit = config.commit,
 			})
@@ -321,6 +325,7 @@ local function mount(config: Config): App
 				operations = config.operations,
 				log = config.log,
 				reloadMethods = config.reloadMethods,
+				reloadPresets = config.reloadPresets,
 			})
 			local controller: Controller.Controller = { state = state, actions = actions }
 			mountedState = state

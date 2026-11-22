@@ -1,0 +1,5 @@
+{
+	"attributes": {
+		"Description": "Clones every child into the named player's PlayerGui."
+	}
+}

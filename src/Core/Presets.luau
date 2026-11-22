@@ -1,91 +1,88 @@
 --!strict
---- Module presets. The sources are byte-for-byte the ones the previous plugin shipped.
+--- Module presets. They are not in the code: they are the scripts inside `presets.rbxm`, downloaded at startup the
+--- same way `methods.rbxm` is, so a preset can be swapped, added or edited without touching the plugin.
+---
+--- A preset is a ModuleScript (or any script) inside that model: its name is the preset's name, its `Source` is
+--- what gets written into the new `MainModule`, and an optional string attribute `Description` is the line shown
+--- under the picker. Folders are looked through, so the model can be organised however you like. In the repository
+--- the scripts live in `presets/` (one `.luau` file each, plus an optional `.meta.json` for the attribute) and
+--- `rojo build presets.project.json -o presets.rbxm` packs them.
 
 local Common = require("./Common")
+local Methods = require("./Methods")
 local Result = require("./Result")
 local Types = require("./Types")
 
 local Presets = {}
+Presets.__index = Presets
 
-Presets.names = { "Advanced Module", "Basic Module" } :: { string }
+type Self = typeof(setmetatable({} :: { presets: { [string]: Types.Preset } }, Presets))
 
-Presets.descriptions = {
-	["Advanced Module"] = "Clones the children of service-named folders (StarterGui, StarterPack, StarterCharacterScripts, ...) into the matching container of the named player.",
-	["Basic Module"] = "Clones every child into the named player's PlayerGui.",
-} :: { [string]: string }
+--- Same keep-or-fall-back rule as the method picker.
+Presets.pick = Methods.pick
 
-local basicModuleSource = [[return function(...)
-	const args = table.pack(...)
-	const player: Player? = game:QueryDescendants(`>Players>Player#{args[1]}`)[1]
-	if not player then
-		return
-	end
-	const playerGui: PlayerGui? = player:FindFirstChildOfClass("PlayerGui")
-	if not playerGui then
-		return
-	end
-	for index: number, value: Instance in script:GetChildren() do
-		value:Clone().Parent = playerGui
-	end
-end]]
-
-local advancedModuleSource = [[const starterPlayer = game:GetService("StarterPlayer")
-const starterPack = game:GetService("StarterPack")
-const starterGui = game:GetService("StarterGui")
-const players = game:GetService("Players")
-const starterCharacterScripts = starterPlayer:QueryDescendants(">StarterCharacterScripts")[1]
-const starterPlayerScripts = starterPlayer:QueryDescendants(">StarterPlayerScripts")[1]
-
-const function getService(serviceName: string)
-    local service = nil
-    if serviceName == "StarterCharacterScripts" or serviceName == "StarterPlayerScripts" then
-        service = game:QueryDescendants(serviceName)[1]
-    else
-        service = game:QueryDescendants(">"..serviceName)[1]
-    end
-    return service
+function Presets.new(): Types.PresetStore
+	return setmetatable({ presets = {} }, Presets) :: any
 end
 
-return function(name: string)
-    const player: Player = players:QueryDescendants(`>Player#{name}`)[1]
-    if not player then
-        return
-    end
-    for _, value in script:GetChildren() do
-        local service = getService(value.Name)
-        if typeof(service) ~= "Instance" then
-            warn("Service not found: " .. value.Name, 1)
-            continue
-        end
-        if service == starterPack then
-            service = player:FindFirstChildWhichIsA("Backpack")
-        elseif service == starterGui then
-            service = player:FindFirstChildWhichIsA("PlayerGui")
-        elseif service == starterPlayerScripts then
-            service = player:FindFirstChildWhichIsA("PlayerGui")
-        elseif service == starterCharacterScripts then
-            service = player.Character or player.CharacterAdded:Wait()
-        end
-        if not service then
-            warn("Service not found: " .. value.Name, 2)
-            continue
-        end
-        for _, instance in value:GetChildren() do
-            if not service:FindFirstChild(instance.Name) then
-                instance:Clone().Parent = service
-            end
-        end
-    end
-end]]
+--- Replaces the whole preset set.
+function Presets.set(self: Self, presets: { [string]: Types.Preset })
+	self.presets = table.clone(presets)
+end
 
-local sources: { [string]: string } = {
-	["Advanced Module"] = advancedModuleSource,
-	["Basic Module"] = basicModuleSource,
-}
+--- Names in a stable order: case-insensitive first, the exact name as the tie-breaker.
+function Presets.names(self: Self): { string }
+	local names: { string } = {}
+	for name in self.presets do
+		table.insert(names, name)
+	end
+	table.sort(names, function(a, b)
+		local la, lb = string.lower(a), string.lower(b)
+		if la ~= lb then
+			return la < lb
+		end
+		return a < b
+	end)
+	return names
+end
 
---- The preset's source, or the previous implementation's placeholder for an unknown name.
-function Presets.source(name: string): string
-	return sources[name] or "-- Invalid Preset"
+function Presets.has(self: Self, name: string): boolean
+	return self.presets[name] ~= nil
+end
+
+function Presets.source(self: Self, name: string): string?
+	local preset = self.presets[name]
+	return if preset then preset.source else nil
+end
+
+function Presets.description(self: Self, name: string): string
+	local preset = self.presets[name]
+	return if preset then preset.description else ""
+end
+
+--- Reads the deserialized `presets.rbxm` (its top-level instances). Scripts are presets; folders and models are
+--- looked through, anything else is ignored. A later script with the same name replaces an earlier one.
+function Presets.parse(roots: { Instance }): { [string]: Types.Preset }
+	local found: { [string]: Types.Preset } = {}
+
+	local function visit(instance: Instance)
+		if instance:IsA("LuaSourceContainer") then
+			local description = instance:GetAttribute("Description")
+			found[instance.Name] = {
+				source = (instance :: any).Source,
+				description = if type(description) == "string" then description else "",
+			}
+		elseif instance:IsA("Folder") or instance:IsA("Model") then
+			for _, child in instance:GetChildren() do
+				visit(child)
+			end
+		end
+	end
+
+	for _, root in roots do
+		visit(root)
+	end
+	return found
 end
 
 --- Creates a `MainModule` ModuleScript with the chosen preset inside every selected instance.
@@ -96,7 +93,12 @@ function Presets.insert(env: Types.Env, presetName: Types.PresetName): Types.Res
 		return Result.skipped("Nothing is selected to insert the preset into.")
 	end
 
-	local source = Presets.source(presetName)
+	local source = env.presets:source(presetName)
+	if source == nil then
+		env.log.warn(`Preset "{presetName}" is not loaded.`)
+		return Result.failure(`The preset "{presetName}" is not loaded. Try Reload.`)
+	end
+
 	env.history:record(`Sensation: Insert {presetName}`, function()
 		for _, value: Instance in selected do
 			Common.create(env, "ModuleScript", {
@@ -110,6 +112,5 @@ function Presets.insert(env: Types.Env, presetName: Types.PresetName): Types.Res
 	env.log.info(`Inserted {presetName} into {#selected} object(s).`)
 	return Result.success(`Inserted {presetName} into {#selected} {if #selected == 1 then "object" else "objects"}.`, #selected)
 end
-
 
 return Presets

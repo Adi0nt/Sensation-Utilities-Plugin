@@ -66,5 +66,22 @@ return {
 			eq(Format.classBreakdown(items({ "Zed", "Alpha", "Zed", "Mid" })), "Zed ×2 · Alpha · +1 more")
 			eq(Format.classBreakdown(items({ "Mid", "Alpha", "Zed" })), "Alpha · Mid · +1 more")
 		end)
+
+		test("asset uses: counted per class and property, commonest first, capped", function()
+			local function use(className: string, property: string)
+				return { className = className, property = property }
+			end
+			eq(Format.assetUses({ use("MeshPart", "MeshId") }), "MeshPart.MeshId", "a single use has no count")
+			eq(
+				Format.assetUses({ use("Decal", "Texture"), use("MeshPart", "TextureID"), use("MeshPart", "TextureID") }),
+				"MeshPart.TextureID ×2 · Decal.Texture"
+			)
+			eq(
+				Format.assetUses({ use("B", "p"), use("A", "p"), use("C", "p"), use("D", "p") }),
+				"A.p · B.p · +2 more",
+				"ties are alphabetical and the list is capped"
+			)
+			eq(Format.assetUses({}), "", "no uses, no text")
+		end)
 	end,
 }

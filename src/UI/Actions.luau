@@ -19,13 +19,24 @@ export type Actions = {
 	sandbox: () -> (),
 	unsandbox: () -> (),
 	cleanSounds: () -> (),
+	--- Looks through the selection for asset references that fail to load and lists them.
+	scanAssets: () -> (),
+	--- Clears the ticked broken assets (or removes the instances that hold them).
+	cleanAssets: () -> (),
+	--- Ticks or unticks one broken asset in the list.
+	toggleAsset: (id: number) -> (),
+	--- Ticks every broken asset, or none.
+	setAllAssets: (picked: boolean) -> (),
 	insertPreset: () -> (),
 	insertLatest: () -> (),
 	insertVersion: () -> (),
+	--- The Insert button: loads the latest version or the typed one, per `state.assetVersionMode`.
+	insert: () -> (),
 	upload: () -> (),
 	save: () -> (),
 	spawn: (rig: Types.RigType) -> (),
 	reloadMethods: () -> (),
+	reloadPresets: () -> (),
 	dismissStatus: () -> (),
 	navigate: (page: State.Page) -> (),
 	toggleNav: () -> (),
@@ -36,6 +47,8 @@ export type Config = {
 	log: Types.Log,
 	--- Re-downloads the bypass methods into the method store. Yields. Returns the method count, or `nil, reason`.
 	reloadMethods: () -> (number?, string?),
+	--- Re-downloads the module presets into the preset store. Yields. Returns the preset count, or `nil, reason`.
+	reloadPresets: () -> (number?, string?),
 }
 
 --- Operations touching more than this ask for confirmation first.
@@ -82,12 +95,16 @@ function Actions.new(state: State.State, config: Config): Actions
 	--- Yields the calling action until the user answers the dialog.
 	local function confirm(title: string, message: string, confirmLabel: string): boolean
 		local thread = coroutine.running()
+		-- While the dialog is open nothing is being worked on, so the status bar must not say it is.
+		local working = state.busyLabel:peek()
+		state.busyLabel:set("Waiting for your answer...")
 		state.confirm:set({
 			title = title,
 			message = message,
 			confirmLabel = confirmLabel,
 			resolve = function(confirmed: boolean)
 				state.confirm:set(nil)
+				state.busyLabel:set(working)
 				task.spawn(thread, confirmed)
 			end,
 		})
@@ -124,7 +141,8 @@ function Actions.new(state: State.State, config: Config): Actions
 		return #selection:Get()
 	end
 
-	return {
+	local actions: Actions
+	actions = {
 		bypass = function()
 			run("bypass", "Bypassing ModuleScripts...", function()
 				local modules = ops.countModules(selection:Get())
@@ -210,6 +228,86 @@ function Actions.new(state: State.State, config: Config): Actions
 			end)
 		end,
 
+		scanAssets = function()
+			run("scan", "Scanning assets...", function()
+				local result, report = ops.scanAssets(function(done: number, total: number)
+					state.busyLabel:set(`Checking assets... {done} of {total}`)
+				end)
+				if report ~= nil then
+					state.cleanReport:set(report)
+					-- A fresh scan ticks everything it found; the user unticks what should stay.
+					local picked: { [number]: boolean } = {}
+					for _, asset in report.broken do
+						picked[asset.id] = true
+					end
+					state.cleanPicked:set(picked)
+				end
+				return result
+			end)
+		end,
+
+		cleanAssets = function()
+			run("cleanAssets", "Cleaning assets...", function()
+				local picked = state.cleanPicked:peek()
+				local chosen: { Types.BrokenAsset } = {}
+				local rest: { Types.BrokenAsset } = {}
+				for _, asset in state.cleanBroken:peek() do
+					table.insert(if picked[asset.id] then chosen else rest, asset)
+				end
+				local removing = state.cleanRemove:peek()
+				if #chosen == 0 then
+					return Result.skipped("Tick at least one asset to clean.")
+				end
+				if removing then
+					-- Removing instances is the drastic option, so it always asks first.
+					local holders: { [Instance]: boolean } = {}
+					local count = 0
+					for _, asset in chosen do
+						for _, reference in asset.references do
+							if not holders[reference.instance] then
+								holders[reference.instance] = true
+								count += 1
+							end
+						end
+					end
+					local message = if count == 1
+						then "This removes 1 instance that uses the ticked assets, along with anything inside it."
+						else `This removes {count} instances that use the ticked assets, along with anything inside them.`
+					if not confirm("Remove these instances?", `{message} You can undo it with Ctrl+Z.`, "Remove") then
+						return nil
+					end
+				end
+				local result = ops.cleanAssets(chosen, removing)
+				-- What was cleaned leaves the list; anything that could not be changed stays so it can be retried.
+				local failed = result.level == "warning" or not result.ok
+				if not failed then
+					local report = state.cleanReport:peek()
+					if report ~= nil then
+						local updated = table.clone(report)
+						updated.broken = rest
+						state.cleanReport:set(updated)
+					end
+				end
+				return result
+			end)
+		end,
+
+		toggleAsset = function(id: number)
+			local picked = table.clone(state.cleanPicked:peek())
+			picked[id] = if picked[id] then nil else true
+			state.cleanPicked:set(picked)
+		end,
+
+		setAllAssets = function(on: boolean)
+			local picked: { [number]: boolean } = {}
+			if on then
+				for _, asset in state.cleanBroken:peek() do
+					picked[asset.id] = true
+				end
+			end
+			state.cleanPicked:set(picked)
+		end,
+
 		insertPreset = function()
 			run("preset", "Inserting preset...", function()
 				local targets = selectedCount()
@@ -258,6 +356,14 @@ function Actions.new(state: State.State, config: Config): Actions
 			end)
 		end,
 
+		insert = function()
+			if state.assetVersionMode:peek() == "Specific" then
+				actions.insertVersion()
+			else
+				actions.insertLatest()
+			end
+		end,
+
 		upload = function()
 			run("upload", "Opening the upload prompt...", function()
 				return ops.uploadSelection()
@@ -296,6 +402,17 @@ function Actions.new(state: State.State, config: Config): Actions
 			end)
 		end,
 
+		reloadPresets = function()
+			run("reloadPresets", "Reloading module presets...", function()
+				local count, reason = config.reloadPresets()
+				if count == nil then
+					return Result.failure(`Could not reload the presets. {reason or ""}`)
+				end
+				state.refreshPresets()
+				return Result.success(`Loaded {count} module {if count == 1 then "preset" else "presets"}.`, count)
+			end)
+		end,
+
 		dismissStatus = function()
 			cancelDismissTimer()
 			state.status:set(nil)
@@ -309,6 +426,8 @@ function Actions.new(state: State.State, config: Config): Actions
 			state.page:set(page)
 		end,
 	}
+
+	return actions
 end
 
 return Actions

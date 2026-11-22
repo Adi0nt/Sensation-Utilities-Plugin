@@ -9,12 +9,14 @@ local ConfirmationDialog = require("./Components/ConfirmationDialog")
 local Format = require("../Core/Format")
 local Methods = require("../Core/Methods")
 local Operations = require("../Core/Operations")
+local Presets = require("../Core/Presets")
 local StatusMessage = require("./Components/StatusMessage")
 local Theme = require("./Theme")
 local Types = require("../Core/Types")
 local Validation = require("../Core/Validation")
 
 export type Page = "Modules" | "Marketplace" | "Studio"
+export type VersionMode = "Latest" | "Specific"
 
 export type Status = {
 	level: Types.Level,
@@ -38,13 +40,27 @@ export type State = {
 	methodNames: Flux.State<{ string }>,
 	method: Flux.State<string>,
 	mode: Flux.State<Types.BypassMode>,
+	presetNames: Flux.State<{ string }>,
+	--- The selected preset's description (from its `Description` attribute in presets.rbxm).
+	presetDescription: Flux.Node<string>,
 	preset: Flux.State<Types.PresetName>,
 	--- Outcome of the last sound clean ("Cleaned 3 sounds."), shown under the Clean button.
 	cleanerResult: Flux.State<string?>,
+	--- What the last private-asset scan found, listed under the Scan button (nil before the first scan).
+	cleanReport: Flux.State<Types.ScanReport?>,
+	--- The broken assets in `cleanReport`, most-used first (empty when there is nothing to list).
+	cleanBroken: Flux.Node<{ Types.BrokenAsset }>,
+	--- Asset ids ticked for cleaning. A fresh scan ticks everything it found.
+	cleanPicked: Flux.State<{ [number]: boolean }>,
+	cleanPickedCount: Flux.Node<number>,
+	--- Remove the instances that hold the chosen references instead of blanking the property.
+	cleanRemove: Flux.State<boolean>,
 
 	-- Marketplace
 	assetId: Flux.State<string>,
 	assetVersion: Flux.State<string>,
+	--- Which version the Insert button loads: the asset's latest, or the number typed in the version field.
+	assetVersionMode: Flux.State<VersionMode>,
 	assetIdError: Flux.Node<string?>,
 	assetVersionError: Flux.Node<string?>,
 
@@ -70,23 +86,31 @@ export type State = {
 		sandbox: Gate,
 		unsandbox: Gate,
 		cleanSounds: Gate,
+		scanAssets: Gate,
+		cleanAssets: Gate,
 		insertPreset: Gate,
 		insertLatest: Gate,
 		insertVersion: Gate,
+		--- The single Insert button: the latest-version or the specific-version gate, per `assetVersionMode`.
+		insert: Gate,
 		upload: Gate,
 		save: Gate,
 		spawn: Gate,
 		reloadMethods: Gate,
+		reloadPresets: Gate,
 	},
 
 	--- Re-reads the method store into `methodNames`, keeping the selected method when it still exists.
 	refreshMethods: () -> (),
+	--- Re-reads the preset store into `presetNames`, keeping the selected preset when it still exists.
+	refreshPresets: () -> (),
 }
 
 export type Config = {
 	selection: Selection,
 	operations: Operations.Operations,
 	methods: Types.MethodStore,
+	presets: Types.PresetStore,
 	--- The dock widget (its size drives the responsive layout).
 	widget: LayerCollector,
 	commit: string,
@@ -155,9 +179,46 @@ function State.new(config: Config): State
 	end
 	refreshMethods()
 
+	local presetNames = Flux.signal({} :: { string })
+	-- The first listed preset is the default ("Advanced Module" while it exists, as before).
+	local preset = Flux.signal("" :: Types.PresetName)
+	local function refreshPresets()
+		local names = config.presets:names()
+		presetNames:set(names)
+		local current = preset:peek()
+		if current == "" and table.find(names, "Advanced Module") ~= nil then
+			current = "Advanced Module"
+		end
+		preset:set(Presets.pick(names, current))
+	end
+	refreshPresets()
+	local presetDescription = Flux.computed(function(): string
+		presetNames() -- the descriptions change when the presets are reloaded
+		return config.presets:description(preset())
+	end)
+
+	-- Asset cleaner ----------------------------------------------------------------------------------------------
+	local cleanReport = Flux.signal(nil :: Types.ScanReport?)
+	local cleanPicked = Flux.signal({} :: { [number]: boolean })
+	local cleanRemove = Flux.signal(false)
+	local cleanBroken = Flux.computed(function(): { Types.BrokenAsset }
+		local report = cleanReport()
+		return if report then report.broken else {}
+	end)
+	local cleanPickedCount = Flux.computed(function(): number
+		local picked, count = cleanPicked(), 0
+		for _, asset in cleanBroken() do
+			if picked[asset.id] then
+				count += 1
+			end
+		end
+		return count
+	end)
+
 	-- Marketplace inputs -----------------------------------------------------------------------------------------
 	local assetId = Flux.signal("")
 	local assetVersion = Flux.signal("")
+	local assetVersionMode = Flux.signal("Latest" :: VersionMode)
 
 	local assetIdError = Flux.computed(function(): string?
 		local text = assetId()
@@ -244,11 +305,19 @@ function State.new(config: Config): State
 		methodNames = methodNames,
 		method = method,
 		mode = Flux.signal("Insert" :: Types.BypassMode),
-		preset = Flux.signal("Advanced Module" :: Types.PresetName),
+		presetNames = presetNames,
+		presetDescription = presetDescription,
+		preset = preset,
 		cleanerResult = Flux.signal(nil :: string?),
+		cleanReport = cleanReport,
+		cleanBroken = cleanBroken,
+		cleanPicked = cleanPicked,
+		cleanPickedCount = cleanPickedCount,
+		cleanRemove = cleanRemove,
 
 		assetId = assetId,
 		assetVersion = assetVersion,
+		assetVersionMode = assetVersionMode,
 		assetIdError = assetIdError,
 		assetVersionError = assetVersionError,
 
@@ -286,7 +355,23 @@ function State.new(config: Config): State
 			sandbox = gate(needsSelection("Select an object in Explorer.")),
 			unsandbox = gate(needsSelection("Select an object in Explorer.")),
 			cleanSounds = gate(needsSelection("Select a Sound, or a model containing sounds.")),
-			insertPreset = gate(needsSelection("Select where the module should be created.")),
+			scanAssets = gate(needsSelection("Select what to scan in Explorer.")),
+			cleanAssets = gate(function()
+				if #cleanBroken() == 0 then
+					return "Scan the selection first. Nothing broken has been found yet."
+				elseif cleanPickedCount() == 0 then
+					return "Tick at least one asset to clean."
+				end
+				return nil
+			end),
+			insertPreset = gate(function()
+				if #presetNames() == 0 then
+					return "No presets are loaded. Try Reload."
+				elseif not hasSelection() then
+					return "Select where the module should be created."
+				end
+				return nil
+			end),
 			insertLatest = gate(function()
 				if not assetIdValid() then
 					return "Enter a valid asset ID."
@@ -299,8 +384,21 @@ function State.new(config: Config): State
 				if not assetIdValid() then
 					return "Enter a valid asset ID."
 				elseif assetVersion() == "" then
-					return "Enter a version number, or use Insert Latest."
+					return "Enter a version number, or switch to Latest."
 				elseif versionValue() == nil then
+					return assetVersionError() or "Enter a valid version number."
+				elseif not hasSelection() then
+					return "Select where the asset should be inserted."
+				end
+				return nil
+			end),
+			insert = gate(function()
+				local specific = assetVersionMode() == "Specific"
+				if not assetIdValid() then
+					return "Enter a valid asset ID."
+				elseif specific and assetVersion() == "" then
+					return "Enter a version number, or switch to Latest."
+				elseif specific and versionValue() == nil then
 					return assetVersionError() or "Enter a valid version number."
 				elseif not hasSelection() then
 					return "Select where the asset should be inserted."
@@ -315,9 +413,13 @@ function State.new(config: Config): State
 			reloadMethods = gate(function()
 				return nil
 			end),
+			reloadPresets = gate(function()
+				return nil
+			end),
 		},
 
 		refreshMethods = refreshMethods,
+		refreshPresets = refreshPresets,
 	}
 end
 

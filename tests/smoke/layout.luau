@@ -5,6 +5,7 @@ local B = require("./boot")
 local engine, Flux, Clock = B.engine, B.Flux, B.Clock
 local Operations = require("../../.smoke/tree/Core/Operations")
 local Methods = require("../../.smoke/tree/Core/Methods")
+local Presets = require("../../.smoke/tree/Core/Presets")
 local App = require("../../.smoke/tree/UI/App")
 
 local function sig() local s = {}; function s:Connect() return { Disconnect = function() end } end return s end
@@ -15,8 +16,10 @@ for _, n in { "Recursion Method", "Alpha Method" } do
 	local f = Instance.new("Folder"); f.Name = n; Instance.new("Script").Parent = f
 	local all = {}; for _, name in store:names() do all[name] = store:get(name) end; all[n] = f; store:set(all)
 end
+local presetStore = Presets.new()
+presetStore:set({ ["Advanced Module"] = { source = "return 1", description = "Clones the children of service-named folders into the matching container of the named player." }, ["Basic Module"] = { source = "return 2", description = "Clones every child." } })
 local silent = { info = function() end, warn = function() end }
-local ops = Operations.new({ plugin = {}, selection = Selection, history = { record = function(_, _, fn) fn() end }, log = silent, methods = store, newIndex = function(i, p, v) i[p] = v end })
+local ops = Operations.new({ plugin = {}, selection = Selection, history = { record = function(_, _, fn) fn() end }, log = silent, methods = store, presets = presetStore, contentProvider = { PreloadAsync = function() end }, newIndex = function(i, p, v) i[p] = v end })
 
 local function relayout(vw, vh)
 	for _ = 1, 20 do Clock.step(1 / 60) end Clock.drain()
@@ -30,8 +33,8 @@ local function rect(d) return d.AbsolutePosition.X, d.AbsolutePosition.Y, d.Abso
 
 local function inside(d, ancestor) return d:IsDescendantOf(ancestor) end
 
-local function verify(vw, vh, page, selectionKind)
-	local ctx = string.format("[%dx%d %s%s]", vw, vh, page, selectionKind and (" sel=" .. selectionKind) or "")
+local function verify(vw, vh, page, selectionKind, seed)
+	local ctx = string.format("[%dx%d %s%s%s]", vw, vh, page, selectionKind and (" sel=" .. selectionKind) or "", seed and (" " .. seed) or "")
 	engine:setViewport(Vector2.new(vw, vh))
 	local screen = Instance.new("ScreenGui"); screen.Parent = engine.LocalPlayer.PlayerGui
 	selectionList = {}
@@ -40,8 +43,22 @@ local function verify(vw, vh, page, selectionKind)
 	elseif selectionKind == "multi" then
 		selectionList = { Instance.new("Part"), Instance.new("Script"), Instance.new("Model"), Instance.new("Folder") }
 	end
-	local app = App.mount({ widget = screen, operations = ops, methods = store, log = silent, commit = "d7ab719", reloadMethods = function() return 1 end })
+	local app = App.mount({ widget = screen, operations = ops, methods = store, presets = presetStore, log = silent, commit = "d7ab719", reloadMethods = function() return 1 end, reloadPresets = function() return 2 end })
 	app.state.page:set(page)
+	if seed == "scan" then
+		-- A finished scan: many broken assets (more than the list shows without scrolling), one picked off.
+		local broken, picked = {}, {}
+		for index = 1, 10 do
+			local part = Instance.new("MeshPart"); part.Name = "AVeryLongMeshPartNameNumber" .. index
+			broken[index] = { content = "rbxassetid://" .. (9120386000 + index), id = 9120386000 + index, references = { { instance = part, property = "MeshId" }, { instance = part, property = "TextureID" } } }
+			picked[broken[index].id] = index % 2 == 0 or nil
+		end
+		app.state.cleanReport:set({ broken = broken, scanned = 4200, references = 25, assets = 14, unverified = 2 })
+		app.state.cleanPicked:set(picked)
+	elseif seed == "specific" then
+		app.state.assetVersionMode:set("Specific")
+		app.state.assetVersion:set("12")
+	end
 	relayout(vw, vh)
 
 	local function find(name) for _, d in screen:GetDescendants() do if d.Name == name then return d end end end
@@ -209,6 +226,10 @@ for _, size in sizes do
 		local r = verify(size[1], size[2], page, nil)
 		print(string.format("%-26s sidebar=%3d column=%3d pageArea=%-9s pageContentHeight=%d", r.ctx, r.sidebar, r.content, r.pages, r.pageHeight))
 	end
+end
+for _, size in { { 320, 400 }, { 540, 700 }, { 900, 700 } } do
+	verify(size[1], size[2], "Modules", nil, "scan")
+	verify(size[1], size[2], "Marketplace", nil, "specific")
 end
 for _, kind in { "long", "multi" } do
 	for _, size in { { 320, 400 }, { 520, 760 } } do verify(size[1], size[2], "Modules", kind) end

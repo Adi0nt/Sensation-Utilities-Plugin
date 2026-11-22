@@ -39,14 +39,14 @@
       <ul>
         <li><b>Bypass Tools</b>: pick a method, choose <b>Insert</b> or <b>Append</b>, then <b>Bypass</b> or <b>Unbypass</b></li>
         <li><b>Sandbox Controls</b>: sandbox the selection and all of its descendants</li>
-        <li><b>Asset Cleaner</b>: clear broken or private <code>SoundId</code>s</li>
-        <li><b>Module Presets</b>: drop in a ready-made <code>MainModule</code></li>
+        <li><b>Asset Cleaner</b>: scan for meshes, textures, sounds and other assets Studio cannot load, then clear them</li>
+        <li><b>Module Presets</b>: drop in a ready-made <code>MainModule</code>, from your own <code>presets.rbxm</code></li>
       </ul>
     </td>
     <td width="33%" valign="top">
       <h3>🛒 Marketplace</h3>
       <ul>
-        <li><b>Asset Insertion</b>: by ID, the <b>latest</b> version or a <b>specific version</b></li>
+        <li><b>Asset Insertion</b>: by ID, with a Version switch for the <b>latest</b> version or a <b>specific version</b></li>
         <li><b>Upload to Roblox</b>: Studio's native publish prompt for the selection</li>
         <li><b>Save to File</b>: export the selection as an <code>.rbxm</code></li>
       </ul>
@@ -69,15 +69,15 @@
 | --- | --- |
 | 🪄 **Bypass Tools** | Methods are discovered dynamically from `methods.rbxm`. **Reload** fetches them again and keeps your selected method if it still exists. |
 | 🏖️ **Sandbox Controls** | Toggles `SecurityCapabilities` and sandboxing flags on the selection *and all of its descendants*. |
-| 🧹 **Asset Cleaner** | Clears the `SoundId` of unloaded (broken or private) sounds and reports how many it cleaned. |
-| 📦 **Module Presets** | Inserts an `Advanced Module` or `Basic Module` `MainModule` into every selected object. |
+| 🧹 **Asset Cleaner** | **Scan Selection** checks every asset reference under the selection (meshes, textures, images, sounds, animations, skies, clothing, particles, ...) with Studio's `ContentProvider` and lists the ones that fail to load, with where each is used. Tick what to clean, then **Clean Selected** blanks those properties, or, with the "Remove the instances" checkbox, **Remove Selected** deletes the instances that hold them (always confirmed). It is one undo step. Nothing changes until you press Clean. **Clean Unloaded Sounds** is the older quick tool for sounds that report as not loaded. |
+| 📦 **Module Presets** | Inserts the chosen preset as a `MainModule` into every selected object. The list comes from `presets.rbxm`; **Reload** fetches it again. |
 | 🔢 **Asset Insertion** | Inserts an asset into every selected object. Inputs are validated before anything is requested. |
 | ☁️ **Upload / Save** | Open Studio's native dialogs for the current selection. |
 
 </details>
 
 > [!NOTE]
-> An asset *version* must be 1 or higher (the old version 0 field default is gone; use **Insert Latest** instead). If
+> An asset *version* must be 1 or higher (choose **Latest** in the Version control instead of typing 0). If
 > `StarterPlayer` already contains a `StarterCharacter`, you are asked before a second one is added. The cleaner clears
 > sounds that report as not loaded, so let valid audio load first.
 
@@ -145,6 +145,7 @@ plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget,
         │  downloads
         ├── packages.rbxm    Maid, RawLib (and some unused extras)
         ├── methods.rbxm     the bypass methods
+        ├── presets.rbxm     the module presets (built from presets/)
         └── ui.rbxm          Flux + the application (built from src/ and vendor/, see below)
 ```
 
@@ -180,6 +181,14 @@ instance, connection, timer and reaction it owns.
 ```powershell
 rojo build default.project.json -o ui.rbxm
 ```
+
+**Presets live outside the code.** Each module preset is one script in `presets/` (`Advanced Module.luau`, `Basic Module.luau`). The file name is the preset's name, and an optional `Name.meta.json` can set a `Description` attribute for the line under the picker. Add, edit or remove files, then repack:
+
+```powershell
+rojo build presets.project.json -o presets.rbxm
+```
+
+You can also edit `presets.rbxm` directly in Studio (any script inside it is a preset; a string attribute `Description` is its description). The plugin downloads it on every Studio start, and **Reload** in the Module Presets panel picks up a change without restarting. The pure-logic tests fail if `presets.rbxm` is out of date with `presets/`.
 
 <details>
 <summary><b>🧪 Tests</b></summary>
@@ -231,7 +240,7 @@ luau-lsp analyze --flag:LuauSolverV2=true --definitions=globalTypes.d.luau --sou
 **Updating Flux:** replace `vendor/flux/src` with the new upstream `src/` and update `vendor/flux/README.md`, run the
 tests, rebuild `ui.rbxm`.
 
-**Trying a branch:** `plugin.luau` loads `packages.rbxm`, `methods.rbxm` and `ui.rbxm` from the `main` branch on GitHub.
+**Trying a branch:** `plugin.luau` loads `packages.rbxm`, `methods.rbxm`, `presets.rbxm` and `ui.rbxm` from the `main` branch on GitHub.
 To try a branch, temporarily change `RAW_MAIN` / `RAW_FRESH` at the top of `plugin.luau`, or use `dev/SensationDev.lua`
 to point the loader at a local server.
 

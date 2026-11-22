@@ -20,7 +20,7 @@ function Marketplace.insertAsset(env: Types.Env, idText: string, versionText: st
 	if not latest then
 		local parsed, versionError = Validation.parseVersion(versionText or "")
 		if parsed == nil then
-			return Result.skipped(versionError or "Enter a version number, or use Insert Latest.")
+			return Result.skipped(versionError or "Enter a version number, or switch to Latest.")
 		end
 		version = parsed
 	end

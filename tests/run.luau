@@ -11,6 +11,7 @@ local specs = {
 	require("./spec/format"),
 	require("./spec/methods"),
 	require("./spec/presets"),
+	require("./spec/cleaner"),
 }
 
 local passed, failed = 0, 0
