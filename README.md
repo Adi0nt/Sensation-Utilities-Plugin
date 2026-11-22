@@ -1,41 +1,45 @@
 <div align="center">
 
-# 🧰 Sensation Utilities
+# Sensation Utilities
 
-**A dockable Roblox Studio toolkit for module bypassing, sandboxing, asset insertion & publishing, and StarterCharacter rigging.**
+**A dockable Roblox Studio toolkit for bypassing and sandboxing modules, cleaning broken assets, inserting and publishing assets, and spawning StarterCharacters.**
 
 <p>
-  <a href="https://github.com/Adi0nt/Sensation-Utilities-Plugin/releases/latest/download/Plugin.rbxmx"><img alt="Download" src="https://img.shields.io/badge/Download-Plugin.rbxmx-2ea44f?style=for-the-badge&logo=github&logoColor=white"></a>
-  <a href="https://create.roblox.com/store/asset/74082080143456"><img alt="Creator Store" src="https://img.shields.io/badge/Creator_Store-Install-00A2FF?style=for-the-badge&logo=roblox&logoColor=white"></a>
+  <a href="https://github.com/Adi0nt/Sensation-Utilities-Plugin/releases/latest/download/Plugin.rbxmx"><img alt="Download Plugin.rbxmx" src="https://img.shields.io/badge/Download-Plugin.rbxmx-3D6CFF?style=for-the-badge&logo=github&logoColor=white"></a>
+  <a href="https://create.roblox.com/store/asset/74082080143456"><img alt="Install from the Creator Store" src="https://img.shields.io/badge/Creator_Store-Install-24292f?style=for-the-badge&logo=roblox&logoColor=white"></a>
 </p>
 
 <p>
-  <img alt="Roblox Studio plugin" src="https://img.shields.io/badge/Roblox_Studio-Plugin-E2231A?style=flat-square&logo=roblox&logoColor=white">
-  <img alt="Language: Luau" src="https://img.shields.io/badge/Luau-strict-00A2FF?style=flat-square">
-  <img alt="UI: Flux 0.5.2" src="https://img.shields.io/badge/UI-Flux_0.5.2-7C5CFF?style=flat-square">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square"></a>
-  <img alt="Auto-updating" src="https://img.shields.io/badge/Updates-automatic-brightgreen?style=flat-square">
+  <img alt="Roblox Studio plugin" src="https://img.shields.io/badge/Roblox_Studio-plugin-24292f?style=flat-square">
+  <img alt="Luau" src="https://img.shields.io/badge/Luau-strict-24292f?style=flat-square">
+  <img alt="Flux 0.5.2" src="https://img.shields.io/badge/UI-Flux_0.5.2-24292f?style=flat-square">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square"></a>
 </p>
 
+<img src="docs/screenshots/modules.png" alt="The Sensation Utilities panel on the Modules page, docked in Roblox Studio, in the dark theme" width="720">
+
+<sub>The panel follows your Studio theme and collapses to an icon rail in a narrow dock.</sub>
+
 <p>
-  <a href="#-features">Features</a> ·
-  <a href="#-installation">Installation</a> ·
-  <a href="#-using-the-interface">Using it</a> ·
-  <a href="#-how-it-works">How it works</a> ·
-  <a href="#-development">Development</a> ·
-  <a href="#-troubleshooting">Troubleshooting</a>
+  <a href="#what-it-does">What it does</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#using-the-interface">Using it</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
 </div>
 
 ---
 
-## ✨ Features
+## What it does
 
 <table>
   <tr>
     <td width="33%" valign="top">
-      <h3>🧩 Modules</h3>
+      <img src="docs/icons/modules.svg" alt="" width="32" height="32">
+      <h3>Modules</h3>
       <ul>
         <li><b>Bypass Tools</b>: pick a method, choose <b>Insert</b> or <b>Append</b>, then <b>Bypass</b> or <b>Unbypass</b></li>
         <li><b>Sandbox Controls</b>: sandbox the selection and all of its descendants</li>
@@ -44,7 +48,8 @@
       </ul>
     </td>
     <td width="33%" valign="top">
-      <h3>🛒 Marketplace</h3>
+      <img src="docs/icons/market.svg" alt="" width="32" height="32">
+      <h3>Marketplace</h3>
       <ul>
         <li><b>Asset Insertion</b>: by ID, with a Version switch for the <b>latest</b> version or a <b>specific version</b></li>
         <li><b>Upload to Roblox</b>: Studio's native publish prompt for the selection</li>
@@ -52,7 +57,8 @@
       </ul>
     </td>
     <td width="33%" valign="top">
-      <h3>🧍 Studio</h3>
+      <img src="docs/icons/studio.svg" alt="" width="32" height="32">
+      <h3>Studio</h3>
       <ul>
         <li><b>StarterCharacter spawners</b>: one click for an <b>R6</b> or <b>R15</b> rig in <code>StarterPlayer</code></li>
       </ul>
@@ -61,81 +67,89 @@
 </table>
 
 <details>
-<summary><b>🔎 Details on each tool</b></summary>
+<summary><b>Details on each tool</b></summary>
 
 <br>
 
 | Tool | What it does |
 | --- | --- |
-| 🪄 **Bypass Tools** | Methods are discovered dynamically from `methods.rbxm`. **Reload** fetches them again and keeps your selected method if it still exists. |
-| 🏖️ **Sandbox Controls** | Toggles `SecurityCapabilities` and sandboxing flags on the selection *and all of its descendants*. |
-| 🧹 **Asset Cleaner** | **Scan Selection** checks every asset reference under the selection (meshes, textures, images, sounds, animations, skies, clothing, particles, ...) with Studio's `ContentProvider` and lists the ones that fail to load, with where each is used. Tick what to clean, then **Clean Selected** blanks those properties, or, with the "Remove the instances" checkbox, **Remove Selected** deletes the instances that hold them (always confirmed). It is one undo step. Nothing changes until you press Clean. **Clean Unloaded Sounds** is the older quick tool for sounds that report as not loaded. |
-| 📦 **Module Presets** | Inserts the chosen preset as a `MainModule` into every selected object. The list comes from `presets.rbxm`; **Reload** fetches it again. |
-| 🔢 **Asset Insertion** | Inserts an asset into every selected object. Inputs are validated before anything is requested. |
-| ☁️ **Upload / Save** | Open Studio's native dialogs for the current selection. |
+| **Bypass Tools** | Methods are discovered dynamically from `methods.rbxm`. **Reload** fetches them again and keeps your selected method if it still exists. |
+| **Sandbox Controls** | Toggles `SecurityCapabilities` and sandboxing flags on the selection *and all of its descendants*. |
+| **Asset Cleaner** | **Scan Selection** checks every asset reference under the selection (meshes, textures, images, sounds, animations, skies, clothing, particles, ...) with Studio's `ContentProvider` and lists the ones that fail to load, with where each is used. Tick what to clean, then **Clean Selected** blanks those properties, or, with the "Remove the instances" checkbox, **Remove Selected** deletes the instances that hold them (always confirmed). It is one undo step. Nothing changes until you press Clean. **Clean Unloaded Sounds** is the older quick tool for sounds that report as not loaded. |
+| **Module Presets** | Inserts the chosen preset as a `MainModule` into every selected object. The list comes from `presets.rbxm`; **Reload** fetches it again. |
+| **Asset Insertion** | Inserts an asset into every selected object. Inputs are validated before anything is requested. |
+| **Upload / Save** | Open Studio's native dialogs for the current selection. |
 
 </details>
 
 > [!NOTE]
 > An asset *version* must be 1 or higher (choose **Latest** in the Version control instead of typing 0). If
-> `StarterPlayer` already contains a `StarterCharacter`, you are asked before a second one is added. The cleaner clears
-> sounds that report as not loaded, so let valid audio load first.
+> `StarterPlayer` already contains a `StarterCharacter`, you are asked before a second one is added. The cleaner scan
+> can only tell whether *Studio* can load an asset, not whether other people can.
 
 ---
 
-## 💻 Using the interface
+## Installation
 
-| | |
-| --- | --- |
-| 🎨 **Matches Studio** | Colours come from your Studio theme and follow it when you change themes. |
-| 📌 **Dockable** | Open or close the panel with the **Sensation Utilities** toolbar button. It is a normal dock widget: dock, float, resize, hide and reopen it. Studio remembers where you left it. |
-| 🧭 **Navigation** | Modules, Marketplace and Studio live in a sidebar that collapses to an icon rail in a narrow dock. Items carry live markers: the selected ModuleScript count on Modules, and a spinner on whichever page is running an operation. |
-| 🎯 **Selection** | A chip at the right of the status bar shows what is selected in Explorer, with the same class icon Explorer uses. |
-| 💬 **Status** | Every action reports its outcome in the status bar. Success and info messages fade back to *Ready*; warnings and errors stay until you dismiss them. Output-window logging is unchanged. |
-| 🚦 **Gated buttons** | Buttons are disabled until what they need exists (a selection, a ModuleScript, a valid asset ID, loaded methods). Hover a disabled button to see why. |
-| 🔒 **One at a time** | Only one action runs at a time, so a slow download cannot be submitted twice. |
-| ⚠️ **Confirmations** | Operations that would touch many instances (more than 10 ModuleScripts or targets, or more than 250 instances including descendants) ask first. |
-| ↩️ **Undo** | Each scene change is wrapped in one `ChangeHistoryService` recording (best effort), so it should undo as a single step. Uploading and saving to a file leave Studio and cannot be undone from here. |
-
----
-
-## 📥 Installation
-
-### Method 1: Local plugin (recommended, auto-updating)
+### Local plugin (recommended, updates itself)
 
 The local plugin fetches the latest updates every time Studio starts.
 
 <p>
-  <a href="https://github.com/Adi0nt/Sensation-Utilities-Plugin/releases/latest/download/Plugin.rbxmx"><img alt="Download Plugin.rbxmx" src="https://img.shields.io/badge/⬇_Download-Plugin.rbxmx-2ea44f?style=for-the-badge"></a>
-  <a href="https://raw.githubusercontent.com/Adi0nt/Sensation-Utilities-Plugin/main/loader.luau"><img alt="loader.luau" src="https://img.shields.io/badge/or-loader.luau-555?style=for-the-badge"></a>
+  <a href="https://github.com/Adi0nt/Sensation-Utilities-Plugin/releases/latest/download/Plugin.rbxmx"><img alt="Download Plugin.rbxmx" src="https://img.shields.io/badge/Download-Plugin.rbxmx-3D6CFF?style=for-the-badge&logo=github&logoColor=white"></a>
+  <a href="https://raw.githubusercontent.com/Adi0nt/Sensation-Utilities-Plugin/main/loader.luau"><img alt="or loader.luau" src="https://img.shields.io/badge/or-loader.luau-24292f?style=for-the-badge"></a>
 </p>
 
-1. **📂 Open the Plugins folder.** In **Roblox Studio**, go to the **Plugins** tab on the top ribbon and click **Plugins Folder**.
-2. **📄 Install.** Move the downloaded `Plugin.rbxmx` (or `loader.luau`) into that folder.
-3. **🔄 Restart Studio.** The **Sensation Utilities** button appears in your plugins toolbar.
+1. **Open the Plugins folder.** In **Roblox Studio**, go to the **Plugins** tab on the top ribbon and click **Plugins Folder**.
+2. **Add the plugin.** Move the downloaded `Plugin.rbxmx` (or `loader.luau`) into that folder.
+3. **Restart Studio.** The **Sensation Utilities** button appears in your plugins toolbar.
 
 <details>
-<summary><b>📁 Default Plugins folder locations</b></summary>
+<summary><b>Default Plugins folder locations</b></summary>
 
 | OS | Path |
 | --- | --- |
-| 🪟 **Windows** | `%LocalAppData%\Roblox\Plugins` |
-| 🍎 **macOS** | `~/Documents/Roblox/Plugins` |
-| 🐧 **Linux (Wine / Vinegar)** | `~/.var/app/io.github.vinegar_hq.Vinegar/data/vinegar/prefixes/studio/drive_c/users/$USER/AppData/Local/Roblox/Plugins` |
+| **Windows** | `%LocalAppData%\Roblox\Plugins` |
+| **macOS** | `~/Documents/Roblox/Plugins` |
+| **Linux (Wine / Vinegar)** | `~/.var/app/io.github.vinegar_hq.Vinegar/data/vinegar/prefixes/studio/drive_c/users/$USER/AppData/Local/Roblox/Plugins` |
 
 </details>
 
-The loader downloads `plugin.luau` from this repository on every start, so the Flux rewrite needs no reinstall.
+The loader downloads `plugin.luau` from this repository on every start, so updates need no reinstall.
 
-### Method 2: Roblox Creator Store
+### Creator Store
 
 <p>
-  <a href="https://create.roblox.com/store/asset/74082080143456"><img alt="Install from the Creator Store" src="https://img.shields.io/badge/Install_from-Creator_Store-00A2FF?style=for-the-badge&logo=roblox&logoColor=white"></a>
+  <a href="https://create.roblox.com/store/asset/74082080143456"><img alt="Install from the Creator Store" src="https://img.shields.io/badge/Creator_Store-Install-24292f?style=for-the-badge&logo=roblox&logoColor=white"></a>
 </p>
 
 ---
 
-## ⚡ How it works
+## Using the interface
+
+| | |
+| --- | --- |
+| **Matches Studio** | Colours come from your Studio theme and follow it when you change themes. |
+| **Dockable** | Open or close the panel with the **Sensation Utilities** toolbar button. It is a normal dock widget: dock, float, resize, hide and reopen it. Studio remembers where you left it. |
+| **Navigation** | Modules, Marketplace and Studio live in a sidebar that collapses to an icon rail in a narrow dock. Items carry live markers: the selected ModuleScript count on Modules, and a spinner on whichever page is running an operation. |
+| **Selection** | A chip at the right of the status bar shows what is selected in Explorer, with the same class icon Explorer uses. |
+| **Status** | Every action reports its outcome in the status bar. Success and info messages fade back to *Ready*; warnings and errors stay until you dismiss them. Output-window logging is unchanged. |
+| **Gated buttons** | Buttons are disabled until what they need exists (a selection, a ModuleScript, a valid asset ID, loaded methods). Hover a disabled button to see why. |
+| **One at a time** | Only one action runs at a time, so a slow download cannot be submitted twice. |
+| **Confirmations** | Operations that would touch many instances (more than 10 ModuleScripts or targets, or more than 250 instances including descendants) ask first, and so does removing instances from the Asset Cleaner. |
+| **Undo** | Each scene change is wrapped in one `ChangeHistoryService` recording (best effort), so it should undo as a single step. Uploading and saving to a file leave Studio and cannot be undone from here. |
+
+<div align="center">
+
+<img src="docs/screenshots/confirm.png" alt="The Asset Cleaner asking for confirmation before removing an instance, with the status bar reading Waiting for your answer" width="640">
+
+<sub>Anything destructive asks first, and the status bar says it is waiting for you.</sub>
+
+</div>
+
+---
+
+## How it works
 
 ```
 Plugin.rbxmx / loader.luau   tiny loader, unchanged
@@ -153,25 +167,25 @@ plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget,
 
 | Path | Layer | Responsibility |
 | --- | --- | --- |
-| `src/Core` | ⚙️ **Utility operations** | The bypass, sandbox, cleaner, preset, asset and rig logic. No GUI or UI framework. Every operation returns a result `{ ok, level, message }`. Dependencies (plugin, selection, undo history, method store, raw property writes) are injected. |
-| `src/UI/Theme.luau` | 🎨 **Theme** | Every colour, font size, spacing, radius and motion value. Nothing else hardcodes them. Colours are read from the active **Studio theme** (`StudioStyleGuideColor`), so the panel matches Studio in any theme and rebuilds itself when you switch; surfaces, lines and hovers are derived from those colours. The structure follows Caelum's design system. |
-| `src/UI/Components` | 🧱 **Components** | Button, IconButton, TextInput / NumberInput, Dropdown, SegmentedControl, SectionHeader, Panel, Tooltip, StatusMessage, ConfirmationDialog, SelectionSummary, SidebarItem, ClassIcon, LoadingIndicator and the drawn icons. |
-| `src/UI/State.luau` | 🧠 **UI state** | One signal per value (page, selection, method, mode, inputs, status, busy, confirmation) plus computed values: derived selection summary, validation errors, and a *gate* per action that says why it is unavailable. |
-| `src/UI/Actions.luau` | 🔌 **Glue** | Runs an operation: refuses duplicates, shows progress, asks for confirmation, catches errors, reports the result. |
-| `src/UI/Pages`, `src/UI/App.luau` | 🖼️ **Pages and shell** | Layout only. |
-| `vendor/flux` | 📦 **Dependency** | Flux **v0.5.2**, an unmodified copy of upstream `src/`, pinned and bundled (see [`vendor/flux/README.md`](vendor/flux/README.md)). MIT, license kept in `vendor/flux/LICENSE.md` and inside `ui.rbxm`. |
+| `src/Core` | **Utility operations** | The bypass, sandbox, cleaner, preset, asset and rig logic. No GUI or UI framework. Every operation returns a result `{ ok, level, message }`. Dependencies (plugin, selection, undo history, method and preset stores, raw property writes) are injected. |
+| `src/UI/Theme.luau` | **Theme** | Every colour, font size, spacing, radius and motion value. Nothing else hardcodes them. Colours are read from the active **Studio theme** (`StudioStyleGuideColor`), so the panel matches Studio in any theme and rebuilds itself when you switch; surfaces, lines and hovers are derived from those colours. The structure follows Caelum's design system. |
+| `src/UI/Components` | **Components** | Button, IconButton, Checkbox, TextInput / NumberInput, Dropdown, SegmentedControl, SectionHeader, Panel, Tooltip, StatusMessage, ConfirmationDialog, SelectionSummary, SidebarItem, ClassIcon, LoadingIndicator and the drawn icons. |
+| `src/UI/State.luau` | **UI state** | One signal per value (page, selection, method, mode, inputs, status, busy, confirmation) plus computed values: derived selection summary, validation errors, and a *gate* per action that says why it is unavailable. |
+| `src/UI/Actions.luau` | **Glue** | Runs an operation: refuses duplicates, shows progress, asks for confirmation, catches errors, reports the result. |
+| `src/UI/Pages`, `src/UI/App.luau` | **Pages and shell** | Layout only. |
+| `vendor/flux` | **Dependency** | Flux **v0.5.2**, an unmodified copy of upstream `src/`, pinned and bundled (see [`vendor/flux/README.md`](vendor/flux/README.md)). MIT, license kept in `vendor/flux/LICENSE.md` and inside `ui.rbxm`. |
 
 The whole UI is created inside one `Flux.mount` scope. Unloading the plugin destroys that scope, which tears down every
 instance, connection, timer and reaction it owns.
 
 ---
 
-## 🔧 Development
+## Development
 
 <p>
-  <a href="https://rojo.space"><img alt="Rojo" src="https://img.shields.io/badge/build-Rojo-E2231A?style=flat-square"></a>
-  <a href="https://lune-org.github.io/docs"><img alt="Lune" src="https://img.shields.io/badge/tests-Lune-5B7CFA?style=flat-square"></a>
-  <a href="https://github.com/JohnnyMorganz/luau-lsp"><img alt="luau-lsp" src="https://img.shields.io/badge/types-luau--lsp-00A2FF?style=flat-square"></a>
+  <a href="https://rojo.space"><img alt="Rojo" src="https://img.shields.io/badge/build-Rojo-24292f?style=flat-square"></a>
+  <a href="https://lune-org.github.io/docs"><img alt="Lune" src="https://img.shields.io/badge/tests-Lune-24292f?style=flat-square"></a>
+  <a href="https://github.com/JohnnyMorganz/luau-lsp"><img alt="luau-lsp" src="https://img.shields.io/badge/types-luau--lsp-24292f?style=flat-square"></a>
 </p>
 
 > [!IMPORTANT]
@@ -191,7 +205,7 @@ rojo build presets.project.json -o presets.rbxm
 You can also edit `presets.rbxm` directly in Studio (any script inside it is a preset; a string attribute `Description` is its description). The plugin downloads it on every Studio start, and **Reload** in the Module Presets panel picks up a change without restarting. The pure-logic tests fail if `presets.rbxm` is out of date with `presets/`.
 
 <details>
-<summary><b>🧪 Tests</b></summary>
+<summary><b>Tests</b></summary>
 
 <br>
 
@@ -217,7 +231,7 @@ A short list of things a headless run cannot cover is in [`dev/MANUAL_TEST.md`](
 </details>
 
 <details>
-<summary><b>🔬 Type checking</b></summary>
+<summary><b>Type checking</b></summary>
 
 <br>
 
@@ -233,7 +247,7 @@ luau-lsp analyze --flag:LuauSolverV2=true --definitions=globalTypes.d.luau --sou
 </details>
 
 <details>
-<summary><b>⬆️ Updating Flux, or trying a branch</b></summary>
+<summary><b>Updating Flux, or trying a branch</b></summary>
 
 <br>
 
@@ -248,7 +262,7 @@ to point the loader at a local server.
 
 ---
 
-## 🩺 Troubleshooting
+## Troubleshooting
 
 <details>
 <summary><b>No plugin icon in the Plugins tab</b></summary>
@@ -273,6 +287,13 @@ The methods download failed. Check your connection and press **Reload** in *Bypa
 </details>
 
 <details>
+<summary><b>"No presets are loaded"</b></summary>
+
+The presets download failed. Check your connection and press **Reload** in *Module Presets*.
+
+</details>
+
+<details>
 <summary><b>Require / loading errors</b></summary>
 
 Make sure you are using the official [Plugin.rbxmx](https://github.com/Adi0nt/Sensation-Utilities-Plugin/releases/latest/download/Plugin.rbxmx) loader.
@@ -281,7 +302,7 @@ Make sure you are using the official [Plugin.rbxmx](https://github.com/Adi0nt/Se
 
 ---
 
-## 📜 License and credits
+## License and credits
 
 Sensation Utilities is MIT licensed, see [`LICENSE`](LICENSE).
 
