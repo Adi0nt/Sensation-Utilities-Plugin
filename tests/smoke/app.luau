@@ -80,6 +80,7 @@ local History = require("../../.smoke/tree/Core/History")
 local Methods = require("../../.smoke/tree/Core/Methods")
 local Presets = require("../../.smoke/tree/Core/Presets")
 local App = require("../../.smoke/tree/UI/App")
+local FloatingWindow = require("../../.smoke/tree/UI/FloatingWindow")
 
 -- ── tiny test framework ─────────────────────────────────────────────────────────────────────────────────────────
 local passed, failed = 0, 0
@@ -190,6 +191,7 @@ local function newWorld()
 	world.reloaded = 0
 	world.presets = makePresetStore()
 	world.presetsReloaded = 0
+	world.windowSwitches = {}
 	world.contentProvider = makeContentProvider()
 	world.operations = Operations.new({
 		plugin = pluginFake,
@@ -213,6 +215,8 @@ local function newWorld()
 		presets = world.presets,
 		log = log,
 		commit = "main",
+		windowMode = "Dock",
+		setWindowMode = function(mode) table.insert(world.windowSwitches, mode) end,
 		reloadMethods = function()
 			world.reloaded += 1
 			return world.methods:names() and #world.methods:names(), nil
@@ -1130,6 +1134,194 @@ test("page transition: a page fades in when shown and is usable right away", fun
 	teardown(w)
 end)
 
+
+test("settings: the window mode switch asks the plugin to move the panel, once, and not while busy", function()
+	local w = newWorld()
+	click(find(w.screen, "Nav_Settings")); settle()
+	check(text(w.screen, "Window"), "the Window panel is on the Settings page")
+	local docked, floating = find(w.screen, "Segment_Docked"), find(w.screen, "Segment_Floating window")
+	check(docked and floating, "both options are offered")
+	check(text(w.screen, "A normal Studio panel. Dock it next to the Explorer, float it, or tab it with other panels. Studio remembers where you leave it."), "the note explains docking")
+
+	click(docked); settle()
+	eq(#w.windowSwitches, 0, "choosing the mode it is already in changes nothing")
+
+	click(floating); settle()
+	eq(#w.windowSwitches, 1, "choosing the other mode asks the plugin once")
+	eq(w.windowSwitches[1], "Floating")
+	check(text(w.screen, "A window over the 3D view that never docks. Drag its title bar to move it, and drag its edges or the bottom-right corner to resize it. Use the toolbar button to show or hide it."), "the note explains the floating window")
+
+	-- while an action runs the switch is disabled: the UI is about to be rebuilt and must not lose that work
+	w.app.state.windowMode:set("Dock")
+	w.app.state.busy:set("scan"); settle()
+	click(floating); settle()
+	eq(#w.windowSwitches, 1, "no switch while another action is running")
+	w.app.state.busy:set(nil)
+	teardown(w)
+end)
+
+test("settings: the Settings page opens from the sidebar and has no spinner of its own", function()
+	local w = newWorld()
+	local nav = find(w.screen, "Nav_Settings")
+	check(nav, "the sidebar lists Settings")
+	click(nav); settle()
+	eq(w.app.state.page:peek(), "Settings")
+	check(find(w.screen, "SettingsPage", "Frame"), "the page is shown")
+	w.app.state.busy:set("scan"); settle()
+	check(not nav:FindFirstChild("NavSpinner", true), "no page operation belongs to Settings")
+	w.app.state.busy:set(nil)
+	teardown(w)
+end)
+
+-- A pointer event the way the engine delivers one: only the fields the window reads.
+local function pointer(kind, x, y)
+	return { UserInputType = kind, Position = Vector3.new(x, y, 0) }
+end
+
+local function newFloating(options)
+	engine:setViewport(Vector2.new(1280, 720))
+	local folder = Instance.new("Folder")
+	folder.Parent = engine.LocalPlayer.PlayerGui
+	local win = FloatingWindow.create({
+		parent = folder,
+		title = "Sensation Utilities",
+		rect = options and options.rect,
+		enabled = options and options.enabled,
+		onRect = options and options.onRect,
+		isPointerDown = options and options.isPointerDown or function() return true end,
+	})
+	settle()
+	return win, folder
+end
+
+test("floating window: opens near the right edge with the app's content area under the title bar", function()
+	local win, folder = newFloating({ enabled = true })
+	local frame = find(win.gui, "Window", "Frame")
+	check(frame and frame.Visible, "the window is shown once the screen size is known")
+	eq(frame.AbsoluteSize.X, 400)
+	eq(frame.AbsolutePosition.X, 1280 - 400 - 24, "near the right edge")
+	eq(win.content.AbsoluteSize.X, 400)
+	eq(win.content.AbsoluteSize.Y, frame.AbsoluteSize.Y - 24, "the content fills the window below the title bar")
+	check(text(win.gui, "Sensation Utilities"), "the title bar names the plugin")
+	check(win.gui.Enabled, "it starts shown when asked to")
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: starts hidden unless asked, and the close button hides it", function()
+	local win, folder = newFloating()
+	check(not win.gui.Enabled, "hidden by default, like the dock")
+	win.gui.Enabled = true
+	click(find(win.gui, "Close", "TextButton"))
+	check(not win.gui.Enabled, "the close button hides it")
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: dragging the title bar moves it, and the final place is reported", function()
+	local saved = {}
+	local win, folder = newFloating({ rect = { x = 200, y = 100, width = 400, height = 500 }, onRect = function(r) table.insert(saved, r) end })
+	local frame = find(win.gui, "Window", "Frame")
+	local bar = find(win.gui, "TitleBar", "Frame")
+	bar.InputBegan:Fire(pointer(Enum.UserInputType.MouseButton1, 300, 110))
+	local catcher = find(win.gui, "DragCatcher")
+	check(catcher, "a layer follows the pointer while dragging")
+	catcher.InputChanged:Fire(pointer(Enum.UserInputType.MouseMovement, 350, 140))
+	settle()
+	eq(frame.AbsolutePosition.X, 250); eq(frame.AbsolutePosition.Y, 130)
+	eq(#saved, 0, "nothing is saved mid-drag")
+	catcher.InputEnded:Fire(pointer(Enum.UserInputType.MouseButton1, 350, 140))
+	settle()
+	check(not find(win.gui, "DragCatcher"), "the layer is removed when the button is released")
+	eq(#saved, 1, "the final place is reported once")
+	eq(saved[1].x, 250); eq(saved[1].y, 130); eq(saved[1].width, 400)
+	-- a stray move after the release does nothing
+	frame.Position = frame.Position
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: a drag ends if the button was released outside the window", function()
+	local down, saved = true, {}
+	local win, folder = newFloating({ rect = { x = 200, y = 100, width = 400, height = 500 }, isPointerDown = function() return down end, onRect = function(r) table.insert(saved, r) end })
+	local bar = find(win.gui, "TitleBar", "Frame")
+	bar.InputBegan:Fire(pointer(Enum.UserInputType.MouseButton1, 300, 110))
+	local catcher = find(win.gui, "DragCatcher")
+	down = false -- released outside Studio: no InputEnded ever arrives
+	catcher.InputChanged:Fire(pointer(Enum.UserInputType.MouseMovement, 400, 200))
+	settle()
+	check(not find(win.gui, "DragCatcher"), "the drag stops by itself")
+	eq(#saved, 1)
+	eq(find(win.gui, "Window", "Frame").AbsolutePosition.X, 200, "the window did not jump to the stray position")
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: dragging cannot lose the title bar off screen", function()
+	local win, folder = newFloating({ rect = { x = 200, y = 100, width = 400, height = 500 } })
+	local bar = find(win.gui, "TitleBar", "Frame")
+	bar.InputBegan:Fire(pointer(Enum.UserInputType.MouseButton1, 300, 110))
+	find(win.gui, "DragCatcher").InputChanged:Fire(pointer(Enum.UserInputType.MouseMovement, 300, -5000))
+	settle()
+	eq(find(win.gui, "Window", "Frame").AbsolutePosition.Y, 0, "it stops at the top of the screen")
+	find(win.gui, "DragCatcher").InputEnded:Fire(pointer(Enum.UserInputType.MouseButton1, 300, -5000))
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: the corner resizes it and the left edge keeps the right edge", function()
+	local win, folder = newFloating({ rect = { x = 500, y = 100, width = 400, height = 500 } })
+	local frame = find(win.gui, "Window", "Frame")
+	find(win.gui, "ResizeBottomRight", "Frame").InputBegan:Fire(pointer(Enum.UserInputType.MouseButton1, 900, 600))
+	find(win.gui, "DragCatcher").InputChanged:Fire(pointer(Enum.UserInputType.MouseMovement, 960, 640))
+	find(win.gui, "DragCatcher").InputEnded:Fire(pointer(Enum.UserInputType.MouseButton1, 960, 640))
+	settle()
+	eq(frame.AbsoluteSize.X, 460); eq(frame.AbsoluteSize.Y, 540)
+	eq(frame.AbsolutePosition.X, 500, "the corner keeps the top-left")
+
+	find(win.gui, "ResizeLeft", "Frame").InputBegan:Fire(pointer(Enum.UserInputType.MouseButton1, 500, 300))
+	find(win.gui, "DragCatcher").InputChanged:Fire(pointer(Enum.UserInputType.MouseMovement, 440, 300))
+	find(win.gui, "DragCatcher").InputEnded:Fire(pointer(Enum.UserInputType.MouseButton1, 440, 300))
+	settle()
+	eq(frame.AbsoluteSize.X, 520)
+	eq(frame.AbsolutePosition.X + frame.AbsoluteSize.X, 960, "the right edge did not move")
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: it follows the screen size, and clicks on the window do not start drags elsewhere", function()
+	local win, folder = newFloating({ rect = { x = 800, y = 500, width = 400, height = 600 } })
+	engine:setViewport(Vector2.new(700, 500)); frames(10)
+	local frame = find(win.gui, "Window", "Frame")
+	check(frame.AbsolutePosition.X + 96 <= 700, "a smaller screen pulls the window back into view")
+	check(frame.AbsolutePosition.Y + 24 <= 500, "its title bar is still on screen")
+	-- only presses start a drag
+	find(win.gui, "TitleBar", "Frame").InputBegan:Fire(pointer(Enum.UserInputType.MouseMovement, 10, 10))
+	check(not find(win.gui, "DragCatcher"), "hovering the title bar is not a drag")
+	win.destroy(); folder:Destroy()
+end)
+
+test("floating window: the app mounts into it, lays out for its size and unmounts cleanly", function()
+	local w = newWorld()
+	w.app.unmount(); w.screen:Destroy()
+	local win, folder = newFloating({ rect = { x = 100, y = 50, width = 360, height = 640 }, enabled = true })
+	local app = App.mount({
+		widget = win.content, windowMode = "Floating", setWindowMode = function(mode) table.insert(w.windowSwitches, mode) end,
+		operations = w.operations, methods = w.methods, presets = w.presets, log = log, commit = "main",
+		reloadMethods = function() return 1 end, reloadPresets = function() return 1 end,
+	})
+	settle()
+	check(find(win.content, "SensationUtilities", "Frame"), "the app is built inside the window's content")
+	check(app.state.compactNav:peek(), "a 360 px wide window uses the icon rail")
+	eq(app.state.windowMode:peek(), "Floating", "the Settings control shows the mode it is in")
+	app.unmount(); frames(2)
+	eq(#win.content:GetChildren(), 0, "unmounting empties the content")
+	win.destroy(); folder:Destroy()
+	w.workspaceFolder:Destroy(); table.remove(liveWorlds, table.find(liveWorlds, w) or 0)
+end)
+
+test("floating window: destroying it removes everything", function()
+	local win, folder = newFloating({ enabled = true })
+	local gui = win.gui
+	win.destroy(); frames(2)
+	check(gui.Parent == nil, "the ScreenGui is gone")
+	eq(#folder:GetChildren(), 0)
+	folder:Destroy()
+end)
 
 print(`\n{passed} passed, {failed} failed`)
 if failed > 0 then require("@lune/process").exit(1) end

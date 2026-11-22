@@ -4,8 +4,9 @@
 --- This file is fetched and run by `loader.luau` / `Plugin.rbxmx`. It only wires things together:
 ---   * downloads `packages.rbxm` (Maid, RawLib), `methods.rbxm` (bypass methods), `presets.rbxm` (module presets)
 ---     and `ui.rbxm` (Flux + the UI),
----   * creates the toolbar button and the dockable widget,
----   * mounts the Flux UI into the widget and unmounts it again when the plugin unloads.
+---   * creates the toolbar button and the place the panel lives in: a dockable widget (the default) or, for people who
+---     do not want docking, a floating window in CoreGui (chosen on the Settings page and remembered),
+---   * mounts the Flux UI into that place and unmounts it again when the plugin unloads.
 ---
 --- The utility operations live in `src/Core`, the interface in `src/UI` (both packaged into `ui.rbxm`).
 
@@ -25,7 +26,13 @@ local RAW_FRESH = if type(devBase) == "string"
 
 --- Marks the runtime folder so a leftover one (from an unload that never finished) is removed on the next start.
 local RUNTIME_FOLDER_NAME = "SensationUtilities_Runtime"
+local FLOATING_GUI_NAME = "SensationUtilities_Floating"
 local WIDGET_ID = "SensationUtilities"
+
+-- Plugin settings (kept by Studio, per user).
+local SETTING_MODE = "SensationUtilities_WindowMode" -- "Dock" (default) | "Floating"
+local SETTING_RECT = "SensationUtilities_FloatingRect" -- where the floating window was left
+local SETTING_OPEN = "SensationUtilities_FloatingOpen" -- whether the floating window was open
 
 local function println(output: string)
 	print(`[Sensation Utilities]: {output}`)
@@ -123,7 +130,7 @@ end))
 
 -- A previous instance that never unloaded cleanly must not leave a second set of modules behind.
 for _, leftover in coreGui:GetChildren() do
-	if leftover.Name == RUNTIME_FOLDER_NAME then
+	if leftover.Name == RUNTIME_FOLDER_NAME or leftover.Name == FLOATING_GUI_NAME then
 		leftover:Destroy()
 	end
 end
@@ -177,6 +184,8 @@ local Methods = require((uiRoot :: any).Core.Methods) :: any
 local Http = require((uiRoot :: any).Core.Http) :: any
 local Operations = require((uiRoot :: any).Core.Operations) :: any
 local Presets = require((uiRoot :: any).Core.Presets) :: any
+local Placement = require((uiRoot :: any).Core.Placement) :: any
+local FloatingWindow = require((uiRoot :: any).UI.FloatingWindow) :: any
 local App = require((uiRoot :: any).UI.App) :: any
 local Theme = require((uiRoot :: any).UI.Theme) :: any
 
@@ -243,7 +252,29 @@ else
 	warnln("Presets failed to load. Module presets are unavailable until you press Reload.")
 end
 
--- Widget -----------------------------------------------------------------------------------------------------------
+-- Window -----------------------------------------------------------------------------------------------------------
+-- The panel lives in a "host": a dock widget (default) or the floating CoreGui window. Both are layer collectors with an
+-- `Enabled` property, so the toolbar button treats them the same. `container` is what the UI is mounted into.
+
+type WindowMode = "Dock" | "Floating"
+type Host = {
+	gui: any, -- DockWidgetPluginGui | ScreenGui
+	container: GuiBase2d,
+	destroy: () -> (),
+}
+
+local function readSetting(key: string): any
+	local ok, value = pcall(function()
+		return plugin:GetSetting(key)
+	end)
+	return if ok then value else nil
+end
+
+local function writeSetting(key: string, value: any)
+	pcall(function()
+		plugin:SetSetting(key, value)
+	end)
+end
 
 local widgetInfo = DockWidgetPluginGuiInfo.new(
 	Enum.InitialDockState.Right, -- first-time placement; Studio remembers where the user docks it afterwards
@@ -267,12 +298,78 @@ local function createWidget(): DockWidgetPluginGui
 	return pluginAny:CreateDockWidgetPluginGui(WIDGET_ID, widgetInfo)
 end
 
-local widget = createWidget()
-widget.Name = WIDGET_ID
-widget.Title = "Sensation Utilities"
-widget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Created the first time the dock is needed and kept for the session (a widget id can only be created once). Someone who
+-- only uses the floating window never gets a dock widget at all.
+local dockWidget: DockWidgetPluginGui? = nil
+
+local function dockHost(enabled: boolean?): Host
+	if dockWidget == nil then
+		local created = createWidget()
+		created.Name = WIDGET_ID
+		created.Title = "Sensation Utilities"
+		created.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		dockWidget = created
+	end
+	local widget = dockWidget :: DockWidgetPluginGui
+	if enabled ~= nil then
+		widget.Enabled = enabled
+	end
+	return {
+		gui = widget,
+		container = widget,
+		-- The widget stays (it cannot be created again); switching away just hides it.
+		destroy = function()
+			widget.Enabled = false
+		end,
+	}
+end
+
+local floatingRect = Placement.decode(readSetting(SETTING_RECT))
+
+local function floatingHost(enabled: boolean?): Host
+	local window = FloatingWindow.create({
+		parent = coreGui,
+		title = "Sensation Utilities",
+		rect = floatingRect,
+		enabled = enabled == true,
+		onRect = function(placed)
+			floatingRect = placed
+			writeSetting(SETTING_RECT, placed)
+		end,
+	})
+	return {
+		gui = window.gui,
+		container = window.content,
+		destroy = function()
+			-- Remember a placement the user has not moved yet too, so a rebuilt window reopens where it was.
+			floatingRect = window.rect() or floatingRect
+			window.destroy()
+		end,
+	}
+end
+
+local currentMode: WindowMode = if readSetting(SETTING_MODE) == "Floating" then "Floating" else "Dock"
+
+--- Builds the host for `mode`. The floating window can fail to open (CoreGui is protected); fall back to the dock then.
+local function createHost(mode: WindowMode, enabled: boolean?): (Host, WindowMode)
+	if mode == "Floating" then
+		local ok, host = pcall(floatingHost, enabled)
+		if ok then
+			return host, "Floating"
+		end
+		warnln(`Could not open the floating window ({tostring(host)}). Using the dock widget instead.`)
+	end
+	return dockHost(enabled), "Dock"
+end
+
+local host: Host
+host, currentMode =
+	createHost(currentMode, if currentMode == "Floating" then readSetting(SETTING_OPEN) == true else nil)
 
 if unloaded then
+	if currentMode == "Floating" then
+		host.destroy()
+	end
 	return
 end
 
@@ -289,9 +386,23 @@ local operations = Operations.new({
 	newIndex = rawLib.instance_newindex,
 })
 
+local app: any
+local remount: (mode: WindowMode, rebuildHost: boolean) -> ()
+
 local function mountApp(commit: string): any
 	return App.mount({
-		widget = widget,
+		widget = host.container,
+		windowMode = currentMode,
+		-- Called from a click inside the UI that is about to be rebuilt, so the switch waits until that click has finished.
+		setWindowMode = function(mode: WindowMode)
+			task.defer(function()
+				if unloaded or mode == currentMode then
+					return
+				end
+				writeSetting(SETTING_MODE, mode)
+				remount(mode, true)
+			end)
+		end,
 		operations = operations,
 		methods = methods,
 		presets = presets,
@@ -314,7 +425,57 @@ local function mountApp(commit: string): any
 	})
 end
 
-local app = mountApp("main")
+-- Toolbar button <-> host ------------------------------------------------------------------------------------------
+
+local hostConnection: RBXScriptConnection? = nil
+
+--- Points the toolbar button (and the remembered open state) at the current host.
+local function bindHost()
+	if hostConnection then
+		hostConnection:Disconnect()
+	end
+	local gui = host.gui
+	button:SetActive(gui.Enabled)
+	hostConnection = gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		button:SetActive(gui.Enabled)
+		if currentMode == "Floating" then
+			writeSetting(SETTING_OPEN, gui.Enabled)
+		end
+	end)
+end
+
+track(button.Click:Connect(function()
+	host.gui.Enabled = not host.gui.Enabled
+end))
+
+--- Rebuilds the interface, keeping the page you were on. With `rebuildHost` the window is made again too: after a switch
+--- between dock and floating, or when the floating window's own chrome needs the new theme colours.
+function remount(mode: WindowMode, rebuildHost: boolean)
+	local page, commit = app.state.page:peek(), app.state.commit:peek()
+	local enabled = host.gui.Enabled
+	app.unmount()
+	Theme.refresh()
+
+	if rebuildHost or mode ~= currentMode then
+		if hostConnection then
+			hostConnection:Disconnect()
+			hostConnection = nil
+		end
+		host.destroy()
+		-- The open state carries across, so switching while the panel is open leaves it open in the new place.
+		host, currentMode = createHost(mode, enabled)
+		bindHost()
+		if currentMode == "Floating" then
+			writeSetting(SETTING_OPEN, host.gui.Enabled)
+		end
+	end
+
+	app = mountApp(commit)
+	app.state.page:set(page)
+end
+
+app = mountApp("main")
+bindHost()
 
 -- The panel follows Studio's theme. Components read their colours when they are built, so a theme change refreshes
 -- the palette and rebuilds the interface (keeping the page you were on).
@@ -324,29 +485,23 @@ pcall(function()
 end)
 if studioSettings ~= nil then
 	track(studioSettings.ThemeChanged:Connect(function()
-		local page, commit = app.state.page:peek(), app.state.commit:peek()
-		app.unmount()
-		Theme.refresh()
-		app = mountApp(commit)
-		app.state.page:set(page)
+		remount(currentMode, currentMode == "Floating")
 	end))
 end
 
 table.insert(cleanups, function()
+	if hostConnection then
+		hostConnection:Disconnect()
+		hostConnection = nil
+	end
 	app.unmount()
+	-- The dock widget goes with the plugin; the floating window is ours to remove.
+	if currentMode == "Floating" then
+		host.destroy()
+	end
 	-- Flux registers one frame connection per loaded copy that it cannot remove itself; park it so it does no work.
 	pcall(Flux.Clock.manual, true)
 end)
-
--- Toolbar button <-> widget ----------------------------------------------------------------------------------------
-
-button:SetActive(widget.Enabled)
-track(button.Click:Connect(function()
-	widget.Enabled = not widget.Enabled
-end))
-track(widget:GetPropertyChangedSignal("Enabled"):Connect(function()
-	button:SetActive(widget.Enabled)
-end))
 
 -- Version label ----------------------------------------------------------------------------------------------------
 

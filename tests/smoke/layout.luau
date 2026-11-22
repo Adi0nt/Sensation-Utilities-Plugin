@@ -43,7 +43,7 @@ local function verify(vw, vh, page, selectionKind, seed)
 	elseif selectionKind == "multi" then
 		selectionList = { Instance.new("Part"), Instance.new("Script"), Instance.new("Model"), Instance.new("Folder") }
 	end
-	local app = App.mount({ widget = screen, operations = ops, methods = store, presets = presetStore, log = silent, commit = "d7ab719", reloadMethods = function() return 1 end, reloadPresets = function() return 2 end })
+	local app = App.mount({ widget = screen, operations = ops, methods = store, presets = presetStore, log = silent, commit = "d7ab719", windowMode = "Dock", setWindowMode = function() end, reloadMethods = function() return 1 end, reloadPresets = function() return 2 end })
 	app.state.page:set(page)
 	if seed == "scan" then
 		-- A finished scan: many broken assets (more than the list shows without scrolling), one picked off.
@@ -222,7 +222,7 @@ end
 
 local sizes = { { 320, 400 }, { 360, 700 }, { 480, 700 }, { 539, 700 }, { 540, 700 }, { 591, 700 }, { 592, 700 }, { 900, 700 }, { 1400, 900 } }
 for _, size in sizes do
-	for _, page in { "Modules", "Marketplace", "Studio" } do
+	for _, page in { "Modules", "Marketplace", "Studio", "Settings" } do
 		local r = verify(size[1], size[2], page, nil)
 		print(string.format("%-26s sidebar=%3d column=%3d pageArea=%-9s pageContentHeight=%d", r.ctx, r.sidebar, r.content, r.pages, r.pageHeight))
 	end

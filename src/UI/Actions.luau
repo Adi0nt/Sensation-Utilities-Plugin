@@ -40,6 +40,9 @@ export type Actions = {
 	dismissStatus: () -> (),
 	navigate: (page: State.Page) -> (),
 	toggleNav: () -> (),
+	--- Moves the panel between the dock widget and the floating window. The plugin rebuilds the interface in the new
+	--- place, so this UI is torn down shortly after the call.
+	setWindowMode: (mode: State.WindowMode) -> (),
 }
 
 export type Config = {
@@ -49,6 +52,8 @@ export type Config = {
 	reloadMethods: () -> (number?, string?),
 	--- Re-downloads the module presets into the preset store. Yields. Returns the preset count, or `nil, reason`.
 	reloadPresets: () -> (number?, string?),
+	--- Switches where the panel lives and rebuilds the interface there. Does not yield; the switch happens right after.
+	setWindowMode: (mode: State.WindowMode) -> (),
 }
 
 --- Operations touching more than this ask for confirmation first.
@@ -424,6 +429,14 @@ function Actions.new(state: State.State, config: Config): Actions
 
 		navigate = function(page: State.Page)
 			state.page:set(page)
+		end,
+
+		setWindowMode = function(mode: State.WindowMode)
+			if state.gate.windowMode:peek() ~= nil then
+				-- The segmented control is disabled while busy, so this only guards a stray call.
+				return
+			end
+			config.setWindowMode(mode)
 		end,
 	}
 

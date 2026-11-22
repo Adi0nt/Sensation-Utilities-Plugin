@@ -14,6 +14,8 @@ export type Props<T> = {
 	value: Flux.State<T>,
 	label: string?,
 	disabled: Flux.Reactive<boolean>?,
+	--- Called after the user picks a different option (not when the picked one is clicked again).
+	onChange: ((value: T) -> ())?,
 }
 
 local HEIGHT = Theme.size.control
@@ -62,7 +64,11 @@ local function Segment<T>(option: Option<T>, props: Props<T>): TextButton
 
 		Activated = function()
 			if not isDisabled() then
+				local changed = props.value:peek() ~= option.value
 				props.value:set(option.value)
+				if changed and props.onChange then
+					props.onChange(option.value)
+				end
 			end
 		end,
 

@@ -12,6 +12,7 @@ local specs = {
 	require("./spec/methods"),
 	require("./spec/presets"),
 	require("./spec/cleaner"),
+	require("./spec/placement"),
 }
 
 local passed, failed = 0, 0

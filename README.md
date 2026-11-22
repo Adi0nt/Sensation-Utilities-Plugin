@@ -106,7 +106,8 @@ The loader downloads `plugin.luau` from this repository on every start, so updat
 | --- | --- |
 | **Matches Studio** | Colours come from your Studio theme and follow it when you change themes. |
 | **Dockable** | Open or close the panel with the **Sensation Utilities** toolbar button. It is a normal dock widget: dock, float, resize, hide and reopen it. Studio remembers where you left it. |
-| **Navigation** | Modules, Marketplace and Studio live in a sidebar that collapses to an icon rail in a narrow dock. Items carry live markers: the selected ModuleScript count on Modules, and a spinner on whichever page is running an operation. |
+| **Floating window** | Prefer no docking? On the **Settings** page, switch Window to *Floating window*: the panel becomes a movable, resizable window over the 3D view (the old CoreGui setup), styled like a Studio panel. Drag its title bar to move it and its left edge, bottom edge or bottom-right corner to resize it; the toolbar button and its close button show and hide it. Your choice, the window's place and size, and whether it was open are saved, and you can switch back to the dock at any time. No dock widget is created while you use it. |
+| **Navigation** | Modules, Marketplace, Studio and Settings live in a sidebar that collapses to an icon rail in a narrow dock. Items carry live markers: the selected ModuleScript count on Modules, and a spinner on whichever page is running an operation. |
 | **Selection** | A chip at the right of the status bar shows what is selected in Explorer, with the same class icon Explorer uses. |
 | **Status** | Every action reports its outcome in the status bar. Success and info messages fade back to *Ready*; warnings and errors stay until you dismiss them. Output-window logging is unchanged. |
 | **Gated buttons** | Buttons are disabled until what they need exists (a selection, a ModuleScript, a valid asset ID, loaded methods). Hover a disabled button to see why. |
@@ -130,7 +131,7 @@ The loader downloads `plugin.luau` from this repository on every start, so updat
 Plugin.rbxmx / loader.luau   tiny loader, unchanged
         │  downloads on every Studio start
         ▼
-plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget, downloads, mount / unmount
+plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget or floating window, downloads, mount / unmount
         │  downloads
         ├── packages.rbxm    Maid, RawLib (and some unused extras)
         ├── methods.rbxm     the bypass methods
@@ -142,12 +143,13 @@ plugin.luau                  plugin LIFECYCLE only: toolbar button, dock widget,
 
 | Path | Layer | Responsibility |
 | --- | --- | --- |
-| `src/Core` | **Utility operations** | The bypass, sandbox, cleaner, preset, asset and rig logic. No GUI or UI framework. Every operation returns a result `{ ok, level, message }`. Dependencies (plugin, selection, undo history, method and preset stores, raw property writes) are injected. |
+| `src/Core` | **Utility operations** | The bypass, sandbox, cleaner, preset, asset and rig logic, and the floating window's placement rules (`Placement`: clamping, resizing, reading a saved position). No GUI or UI framework. Every operation returns a result `{ ok, level, message }`. Dependencies (plugin, selection, undo history, method and preset stores, raw property writes) are injected. |
 | `src/UI/Theme.luau` | **Theme** | Every colour, font size, spacing, radius and motion value. Nothing else hardcodes them. Colours are read from the active **Studio theme** (`StudioStyleGuideColor`), so the panel matches Studio in any theme and rebuilds itself when you switch; surfaces, lines and hovers are derived from those colours. The structure follows Caelum's design system. |
 | `src/UI/Components` | **Components** | Button, IconButton, Checkbox, TextInput / NumberInput, Dropdown, SegmentedControl, SectionHeader, Panel, Tooltip, StatusMessage, ConfirmationDialog, SelectionSummary, SidebarItem, ClassIcon, LoadingIndicator and the drawn icons. |
 | `src/UI/State.luau` | **UI state** | One signal per value (page, selection, method, mode, inputs, status, busy, confirmation) plus computed values: derived selection summary, validation errors, and a *gate* per action that says why it is unavailable. |
 | `src/UI/Actions.luau` | **Glue** | Runs an operation: refuses duplicates, shows progress, asks for confirmation, catches errors, reports the result. |
-| `src/UI/Pages`, `src/UI/App.luau` | **Pages and shell** | Layout only. |
+| `src/UI/Pages`, `src/UI/App.luau` | **Pages and shell** | Layout only. Pages: Modules, Marketplace, Studio and Settings. |
+| `src/UI/FloatingWindow.luau` | **Floating window** | The CoreGui window used instead of the dock widget: a title bar, close button and resize handles around the area the app is mounted into. It only turns pointer input into `Placement` calls; `plugin.luau` decides which of the two hosts is used and keeps the choice in the plugin settings. |
 | `vendor/flux` | **Dependency** | Flux **v0.5.2**, an unmodified copy of upstream `src/`, pinned and bundled (see [`vendor/flux/README.md`](vendor/flux/README.md)). MIT, license kept in `vendor/flux/LICENSE.md` and inside `ui.rbxm`. |
 
 The whole UI is created inside one `Flux.mount` scope. Unloading the plugin destroys that scope, which tears down every
@@ -184,7 +186,7 @@ You can also edit `presets.rbxm` directly in Studio (any script inside it is a p
 
 <br>
 
-**Pure-logic tests** (validation, formatting, method ordering, preset sources unchanged from the previous plugin):
+**Pure-logic tests** (validation, formatting, method ordering, preset sources, asset references, floating-window placement):
 
 ```powershell
 lune run tests/run
@@ -193,7 +195,7 @@ lune run tests/run
 **Headless UI tests.** These mount the real `App`, the real `Core` operations and the real Flux on
 [`sert`](https://github.com/kohltastrophe/sert), the headless Roblox-engine emulator Flux's own tests use. They click
 buttons, hover, open dropdowns, check gating, confirmation, duplicate-submission protection, undo recording, status
-fading and clean unmounting, then measure the layout at dock sizes from 320 px to 1400 px.
+fading and clean unmounting, switch between the dock and the floating window, drag and resize the floating window with simulated pointer input, then measure the layout at dock sizes from 320 px to 1400 px.
 
 ```powershell
 lune run tests/smoke/prepare   # once, and after editing src/: mirrors the tree, downloads sert (SHA-256 verified)

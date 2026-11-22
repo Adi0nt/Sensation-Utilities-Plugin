@@ -4,7 +4,7 @@
 
 local Flux = require("../../Flux")
 
-export type Kind = "modules" | "market" | "studio" | "chevron" | "close" | "check" | "commit" | "sidebar"
+export type Kind = "modules" | "market" | "studio" | "settings" | "chevron" | "close" | "check" | "commit" | "sidebar"
 
 local new = Flux.new
 
@@ -75,6 +75,15 @@ local drawings: { [Kind]: (color: Color) -> { Instance } } = {
 		return {
 			outline(4.75, 0.75, 6.5, 6.5, 3.25, color),
 			outline(2, 9, 12, 6.25, { topLeft = 4, topRight = 4, bottomLeft = 1.5, bottomRight = 1.5 }, color),
+		}
+	end,
+	-- Two sliders: a line each with a round knob.
+	settings = function(color)
+		return {
+			block(1, 4.4, 14, STROKE, 0.6, color),
+			block(1, 10.4, 14, STROKE, 0.6, color),
+			block(8.75, 2.5, 4.25, 4.25, 2.125, color),
+			block(3, 8.5, 4.25, 4.25, 2.125, color),
 		}
 	end,
 	-- A commit: a ring on a line.

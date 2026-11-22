@@ -15,8 +15,10 @@ local Theme = require("./Theme")
 local Types = require("../Core/Types")
 local Validation = require("../Core/Validation")
 
-export type Page = "Modules" | "Marketplace" | "Studio"
+export type Page = "Modules" | "Marketplace" | "Studio" | "Settings"
 export type VersionMode = "Latest" | "Specific"
+--- Where the panel lives: a dock widget, or the floating CoreGui window.
+export type WindowMode = "Dock" | "Floating"
 
 export type Status = {
 	level: Types.Level,
@@ -64,6 +66,10 @@ export type State = {
 	assetIdError: Flux.Node<string?>,
 	assetVersionError: Flux.Node<string?>,
 
+	-- Settings
+	--- The window mode the segmented control shows. Picking another one asks the plugin to switch (see `Actions`).
+	windowMode: Flux.State<WindowMode>,
+
 	-- Feedback
 	busy: Flux.State<string?>,
 	busyLabel: Flux.State<string?>,
@@ -98,6 +104,7 @@ export type State = {
 		spawn: Gate,
 		reloadMethods: Gate,
 		reloadPresets: Gate,
+		windowMode: Gate,
 	},
 
 	--- Re-reads the method store into `methodNames`, keeping the selected method when it still exists.
@@ -111,9 +118,10 @@ export type Config = {
 	operations: Operations.Operations,
 	methods: Types.MethodStore,
 	presets: Types.PresetStore,
-	--- The dock widget (its size drives the responsive layout).
-	widget: LayerCollector,
+	--- What the UI is mounted into: the dock widget, or the floating window's content (its size drives the layout).
+	widget: GuiBase2d,
 	commit: string,
+	windowMode: WindowMode,
 }
 
 --- Selected instances are watched for renames only up to this many, so a huge selection stays cheap.
@@ -321,6 +329,8 @@ function State.new(config: Config): State
 		assetIdError = assetIdError,
 		assetVersionError = assetVersionError,
 
+		windowMode = Flux.signal(config.windowMode),
+
 		busy = busy,
 		busyLabel = busyLabel,
 		status = status,
@@ -414,6 +424,10 @@ function State.new(config: Config): State
 				return nil
 			end),
 			reloadPresets = gate(function()
+				return nil
+			end),
+			-- Switching rebuilds the whole interface, so it waits for a running action to finish.
+			windowMode = gate(function()
 				return nil
 			end),
 		},

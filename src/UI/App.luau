@@ -14,6 +14,7 @@ local MarketplacePage = require("./Pages/MarketplacePage")
 local ModulesPage = require("./Pages/ModulesPage")
 local Operations = require("../Core/Operations")
 local SelectionSummary = require("./Components/SelectionSummary")
+local SettingsPage = require("./Pages/SettingsPage")
 local SidebarItem = require("./Components/SidebarItem")
 local State = require("./State")
 local StatusMessage = require("./Components/StatusMessage")
@@ -25,7 +26,12 @@ local new = Flux.new
 local C = Theme.color
 
 export type Config = {
-	widget: DockWidgetPluginGui,
+	--- Where the UI is built: the dock widget, or the floating window's content frame.
+	widget: GuiBase2d,
+	--- Which of the two it is (the Settings page shows it).
+	windowMode: State.WindowMode,
+	--- Moves the panel to the other place and rebuilds the UI there. Does not yield.
+	setWindowMode: (mode: State.WindowMode) -> (),
 	operations: Operations.Operations,
 	methods: Types.MethodStore,
 	presets: Types.PresetStore,
@@ -54,7 +60,7 @@ local function keys(list: { string }): (string) -> boolean
 	end
 end
 
-local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "studio", owns: (string) -> boolean } } = {
+local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "studio" | "settings", owns: (string) -> boolean } } = {
 	{
 		page = "Modules",
 		label = "Modules",
@@ -70,6 +76,7 @@ local NAV: { { page: State.Page, label: string, icon: "modules" | "market" | "st
 			return string.sub(key, 1, 5) == "spawn"
 		end,
 	},
+	{ page = "Settings", label = "Settings", icon = "settings", owns = keys({}) },
 }
 
 -- The footer and the status bar share one height, so their top hairlines run level across the bottom of the window.
@@ -285,6 +292,11 @@ local function PageArea(controller: Controller.Controller): ScrollingFrame
 							return StudioPage(controller)
 						end)
 					end,
+					Settings = function(): GuiObject
+						return FadeIn(function()
+							return SettingsPage(controller)
+						end)
+					end,
 				}),
 			},
 		},
@@ -320,12 +332,14 @@ local function mount(config: Config): App
 				presets = config.presets,
 				widget = config.widget,
 				commit = config.commit,
+				windowMode = config.windowMode,
 			})
 			local actions = Actions.new(state, {
 				operations = config.operations,
 				log = config.log,
 				reloadMethods = config.reloadMethods,
 				reloadPresets = config.reloadPresets,
+				setWindowMode = config.setWindowMode,
 			})
 			local controller: Controller.Controller = { state = state, actions = actions }
 			mountedState = state

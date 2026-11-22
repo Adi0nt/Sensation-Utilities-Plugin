@@ -68,7 +68,20 @@ at a narrow and a wide size helps most).
 - [ ] **Spawn R6** and **Spawn R15** create `StarterPlayer.StarterCharacter`; spawning again asks before adding a second.
 - [ ] If the avatar service fails (try offline), the panel shows an error instead of throwing.
 
-## 6. Unload / reload
+## 6. Window mode (docked or floating)
+
+- [ ] **Settings** is the last item in the sidebar. Its Window control shows **Docked** selected, with a note about docking.
+- [ ] Pick **Floating window**: the dock widget closes and a window opens over the 3D view in the same moment (it stays open if the panel was open), on the Settings page you were on. The note now describes the floating window.
+- [ ] The floating window has a title bar with the name and a close button. Drag the title bar to move it; drag the left edge, the bottom edge or the bottom-right corner to resize it (it stops at about 320 x 400 and at the screen). The sidebar collapses to the icon rail when it is narrow, as in the dock.
+- [ ] Drag it mostly off the screen: the title bar and part of the window stay reachable. Release the mouse button outside the Studio window mid-drag: the window does not stay stuck to the cursor.
+- [ ] The toolbar button shows and hides the floating window and lights up while it is open; the close button hides it and un-highlights the button.
+- [ ] Restart Studio: the plugin opens in floating mode, in the same place and size, open or closed as you left it. No dock widget is created or shown.
+- [ ] Switch Studio's theme while the window is open: its title bar and the panel both follow it, and the window stays where it was.
+- [ ] Press a button that takes a moment (Marketplace insert, or Reload): while it runs the Window control is disabled.
+- [ ] Pick **Docked** again: the floating window disappears, the dock widget returns where Studio last had it, and the page is kept.
+- [ ] Disable then enable the plugin while floating: one window, no leftovers in CoreGui.
+
+## 7. Unload / reload
 
 - [ ] Disable then enable the plugin (Plugins > Manage Plugins): no duplicate toolbar buttons or panels, no errors.
 - [ ] Run Play / Run mode: the plugin does not load; return to edit mode and it is back.
