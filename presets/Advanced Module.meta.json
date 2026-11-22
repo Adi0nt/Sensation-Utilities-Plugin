@@ -1,0 +1,5 @@
+{
+	"attributes": {
+		"Description": "Clones the children of service-named folders (StarterGui, StarterPack, StarterCharacterScripts, ...) into the matching container of the named player."
+	}
+}

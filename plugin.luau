@@ -1,87 +1,31 @@
 --!strict
-local players = game:GetService("Players")
-local starterPlayer = game:GetService("StarterPlayer")
+--- Sensation Utilities: plugin lifecycle.
+---
+--- This file is fetched and run by `loader.luau` / `Plugin.rbxmx`. It only wires things together:
+---   * downloads `packages.rbxm` (Maid, RawLib), `methods.rbxm` (bypass methods), `presets.rbxm` (module presets)
+---     and `ui.rbxm` (Flux + the UI),
+---   * creates the toolbar button and the dockable widget,
+---   * mounts the Flux UI into the widget and unmounts it again when the plugin unloads.
+---
+--- The utility operations live in `src/Core`, the interface in `src/UI` (both packaged into `ui.rbxm`).
+
 local selection = game:GetService("Selection")
 local serializationService = game:GetService("SerializationService")
-local httpService = game:GetService("HttpService")
+local changeHistoryService = game:GetService("ChangeHistoryService")
 local coreGui = game:GetService("CoreGui")
 
-local toolbar = plugin:CreateToolbar("Sensation")
+local REPO = "Adi0nt/Sensation-Utilities-Plugin"
+-- Development only: `dev/SensationDev.lua` sets `shared.SensationDevBase` (e.g. "http://localhost:8000/") so the
+-- packages, methods, presets and UI are served from a local checkout instead of GitHub. Normal installs never set it.
+local devBase = (shared :: any).SensationDevBase
+local RAW_MAIN = if type(devBase) == "string" then devBase else `https://github.com/{REPO}/raw/refs/heads/main/`
+local RAW_FRESH = if type(devBase) == "string"
+	then devBase
+	else `https://raw.githubusercontent.com/{REPO}/refs/heads/main/`
 
-local packages = {}
-local methods = {}
-local mode: "Insert" | "Append" = "Insert"
-local methodState: any = nil
-
-local rawLib
-local maid
-local Iris
-
-local instance_newindex
-
-const basicModuleSource = [[return function(...)
-	const args = table.pack(...)
-	const player: Player? = game:QueryDescendants(`>Players>Player#{args[1]}`)[1]
-	if not player then
-		return
-	end
-	const playerGui: PlayerGui? = player:FindFirstChildOfClass("PlayerGui")
-	if not playerGui then
-		return
-	end
-	for index: number, value: Instance in script:GetChildren() do
-		value:Clone().Parent = playerGui
-	end
-end]]
-
-const advancedModuleSource = [[const starterPlayer = game:GetService("StarterPlayer")
-const starterPack = game:GetService("StarterPack")
-const starterGui = game:GetService("StarterGui")
-const players = game:GetService("Players")
-const starterCharacterScripts = starterPlayer:QueryDescendants(">StarterCharacterScripts")[1]
-const starterPlayerScripts = starterPlayer:QueryDescendants(">StarterPlayerScripts")[1]
-
-const function getService(serviceName: string)
-    local service = nil
-    if serviceName == "StarterCharacterScripts" or serviceName == "StarterPlayerScripts" then
-        service = game:QueryDescendants(serviceName)[1]
-    else
-        service = game:QueryDescendants(">"..serviceName)[1]
-    end
-    return service
-end
-
-return function(name: string)
-    const player: Player = players:QueryDescendants(`>Player#{name}`)[1]
-    if not player then
-        return
-    end
-    for _, value in script:GetChildren() do
-        local service = getService(value.Name)
-        if typeof(service) ~= "Instance" then
-            warn("Service not found: " .. value.Name, 1)
-            continue
-        end
-        if service == starterPack then
-            service = player:FindFirstChildWhichIsA("Backpack")
-        elseif service == starterGui then
-            service = player:FindFirstChildWhichIsA("PlayerGui")
-        elseif service == starterPlayerScripts then
-            service = player:FindFirstChildWhichIsA("PlayerGui")
-        elseif service == starterCharacterScripts then
-            service = player.Character or player.CharacterAdded:Wait()
-        end
-        if not service then
-            warn("Service not found: " .. value.Name, 2)
-            continue
-        end
-        for _, instance in value:GetChildren() do
-            if not service:FindFirstChild(instance.Name) then
-                instance:Clone().Parent = service
-            end
-        end
-    end
-end]]
+--- Marks the runtime folder so a leftover one (from an unload that never finished) is removed on the next start.
+local RUNTIME_FOLDER_NAME = "SensationUtilities_Runtime"
+local WIDGET_ID = "SensationUtilities"
 
 local function println(output: string)
 	print(`[Sensation Utilities]: {output}`)
@@ -91,745 +35,331 @@ local function warnln(output: string)
 	warn(`[Sensation Utilities]: {output}`)
 end
 
-local function applyPropertiesAndChildren(instance: Instance, properties: { [string]: any }?, children: { Instance }?)
-	if properties then
-		local parent = nil
-		for property, value in properties do
-			if property:lower() == "parent" then
-				parent = value
-				continue
-			end
-			pcall(instance_newindex, instance, property, value)
-		end
-		if parent then
-			pcall(instance_newindex, instance, "Parent", parent)
-		end
-	end
-	if children then
-		for _, child in children do
-			pcall(instance_newindex, child, "Parent", instance)
-		end
-	end
-	return instance
-end
+-- Toolbar ----------------------------------------------------------------------------------------------------------
 
-local function createAsync(className: string, properties: { [string]: any }?, children: { Instance }?)
-	local class = Instance.new(className)
-	return applyPropertiesAndChildren(class, properties, children)
-end
+local toolbar = plugin:CreateToolbar("Sensation")
+local button =
+	toolbar:CreateButton("Sensation Utilities", "Toggles the built-in interface.", Content.fromAssetId(16517502292).Uri :: string)
+button.ClickableWhenViewportHidden = true
 
-local function cloneAsync(clone: Instance, properties: { [string]: any }?, children: { Instance }?)
-	local class = clone:Clone()
-	return applyPropertiesAndChildren(class, properties, children)
-end
+-- Downloading ------------------------------------------------------------------------------------------------------
 
+local httpService = game:GetService("HttpService")
+
+--- Same retrying download the plugin has always used.
 local function getAsync(url: string, maxRetries: number?): string?
 	local retries = maxRetries or 5
 	local attempts = 0
-	local success, body = false, nil
-	
+	local success, body: any = false, nil
+
 	repeat
 		success, body = pcall(httpService.GetAsync, httpService, url)
 		if success then
-			return body
+			return body :: string
 		end
-		
+
 		attempts += 1
 		if attempts <= retries then
 			println(`Buffering... (Attempt {attempts}/{retries})`)
 			task.wait(1)
 		end
 	until success or attempts > retries
-	
+
 	warnln(`Failed to fetch URL after {retries} attempts.`)
 	return nil
 end
 
 local function deserializeInstancesAsync(...): { Instance }
-	return select(2, pcall(serializationService.DeserializeInstancesAsync, serializationService, ...))
+	local ok, result = pcall(serializationService.DeserializeInstancesAsync, serializationService, ...)
+	if ok then
+		return result :: { Instance }
+	end
+	warnln(`Could not read a downloaded package: {tostring(result)}`)
+	return {}
 end
 
-local function getActiveMethod(): Instance?
-	if methodState and methodState.value ~= "" and methods[methodState.value] then
-		return methods[methodState.value]
+--- Downloads an .rbxm and returns its top-level instances (empty on failure).
+local function fetchModel(url: string, maxRetries: number?): { Instance }
+	local body = getAsync(url, maxRetries)
+	if not body then
+		return {}
 	end
-	local firstName, firstInstance = next(methods)
-	if firstName and firstInstance then
-		if methodState then
-			methodState:set(firstName)
+	return deserializeInstancesAsync(buffer.fromstring(body))
+end
+
+-- Lifecycle state --------------------------------------------------------------------------------------------------
+
+local unloaded = false
+local connections: { RBXScriptConnection } = {}
+local cleanups: { () -> () } = {}
+
+local function track(connection: RBXScriptConnection)
+	table.insert(connections, connection)
+end
+
+local function teardown()
+	unloaded = true
+	for _, connection in connections do
+		connection:Disconnect()
+	end
+	table.clear(connections)
+	-- Last registered, first cleaned (UI before the modules it runs from).
+	for index = #cleanups, 1, -1 do
+		local ok, err = pcall(cleanups[index])
+		if not ok then
+			warnln(`Cleanup error: {tostring(err)}`)
 		end
-		return firstInstance
 	end
-	return nil
+	table.clear(cleanups)
 end
 
-local function appendAsync(moduleScript: ModuleScript)
-	local container = getActiveMethod()
-	if not container then
-		return warnln("No bypass method available. Ensure methods.rbxm is loaded.")
+track(plugin.Unloading:Connect(function()
+	println("Closing plugin...")
+	teardown()
+	println("Closed plugin.")
+end))
+
+-- Dependencies -----------------------------------------------------------------------------------------------------
+
+-- A previous instance that never unloaded cleanly must not leave a second set of modules behind.
+for _, leftover in coreGui:GetChildren() do
+	if leftover.Name == RUNTIME_FOLDER_NAME then
+		leftover:Destroy()
 	end
-	println(`Appended {moduleScript.Name} using {container.Name}`)
-	
-	return selection:Set({
-		createAsync("ModuleScript", {
-			Parent = moduleScript.Parent,
-			Name = "MainModule",
-			Source = 'local moduleScript=script:FindFirstChildWhichIsA("ModuleScript",true)\nmoduleScript.Parent=nil\nscript:ClearAllChildren()\nmoduleScript.Parent=script\nreturn require(moduleScript)',
-		}, { 
-			cloneAsync(container:GetChildren()[1], nil, { moduleScript:Clone() }) 
-		}),
-	})
 end
-
-local function insertAsync(moduleScript: ModuleScript)
-	local container = getActiveMethod()
-	if not container then
-		return warnln("No bypass method available. Ensure methods.rbxm is loaded.")
-	end
-	println(`Inserted {moduleScript.Name} using {container.Name}`)
-
-	local children = container:GetChildren()
-	for index, child in children do
-		children[index] = child:Clone()
-	end
-	
-	return selection:Set({
-		cloneAsync(moduleScript:Clone(), {
-			Parent = moduleScript.Parent
-		}, children)
-	})
-end
-
-local function extractAsync(moduleScript: ModuleScript)
-	local originalModule = moduleScript:FindFirstChildWhichIsA("ModuleScript", true)
-	if not originalModule then
-		println(`Extracted {moduleScript.Name} from itself.`)
-		return selection:Set({ cloneAsync(moduleScript, { Parent = moduleScript.Parent }) })
-	end
-	println(`Extracted {originalModule.Name} from {moduleScript.Name}`)
-	return selection:Set({ cloneAsync(originalModule, { Parent = moduleScript.Parent }) })
-end
-
-local button = toolbar:CreateButton("Sensation Utilities", "Toggles the built-in interface.", Content.fromAssetId(16517502292).Uri)
 
 println("Loading packages...")
-local packageUrl = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/packages.rbxm"
-local packageResponse = getAsync(packageUrl)
-if packageResponse then
-	local responseBuffer = buffer.fromstring(packageResponse)
-	local _packages = deserializeInstancesAsync(responseBuffer)
-	for _, value in _packages do
-		packages[value.Name] = value
-	end
-	println("Loaded packages.")
-else
+local packages: { [string]: Instance } = {}
+for _, value in fetchModel(`{RAW_MAIN}packages.rbxm`) do
+	packages[value.Name] = value
+end
+if next(packages) == nil then
 	warnln("Critical Error: Packages failed to load.")
+	return
+end
+println("Loaded packages.")
+
+println("Loading UI...")
+local runtime = Instance.new("Folder")
+runtime.Name = RUNTIME_FOLDER_NAME
+-- Kept inside the DataModel (CoreGui is never saved with the place) so the modules' relative requires resolve.
+runtime.Parent = coreGui
+table.insert(cleanups, function()
+	runtime:Destroy()
+end)
+
+local uiRoot: Instance? = nil
+for _, value in fetchModel(`{RAW_FRESH}ui.rbxm?t={os.time()}`) do
+	if value.Name == "SensationUI" then
+		uiRoot = value
+	else
+		value:Destroy()
+	end
+end
+if not uiRoot then
+	warnln("Critical Error: UI failed to load.")
+	teardown()
+	return
+end
+uiRoot.Parent = runtime
+println("Loaded UI.")
+
+local rawLib = require(packages.RawLib :: ModuleScript) :: any
+local maid = (require(packages.Maid :: ModuleScript) :: any).new()
+table.insert(cleanups, function()
+	maid:Destroy()
+end)
+
+local Flux = require((uiRoot :: any).Flux) :: any
+local Log = require((uiRoot :: any).Core.Log) :: any
+local History = require((uiRoot :: any).Core.History) :: any
+local Methods = require((uiRoot :: any).Core.Methods) :: any
+local Http = require((uiRoot :: any).Core.Http) :: any
+local Operations = require((uiRoot :: any).Core.Operations) :: any
+local Presets = require((uiRoot :: any).Core.Presets) :: any
+local App = require((uiRoot :: any).UI.App) :: any
+local Theme = require((uiRoot :: any).UI.Theme) :: any
+
+-- Bypass methods ---------------------------------------------------------------------------------------------------
+
+local methods = Methods.new()
+
+--- (Re)downloads methods.rbxm into the method store. Yields. Returns the method count, or `nil, reason`.
+local function loadMethods(): (number?, string?)
+	local body = Http.get(`{RAW_FRESH}methods.rbxm?t={os.time()}`, Log)
+	if body == nil then
+		return nil, "The download failed. Check your connection."
+	end
+
+	local containers: { [string]: Instance } = {}
+	local count = 0
+	for _, value in deserializeInstancesAsync(buffer.fromstring(body)) do
+		containers[value.Name] = value
+		count += 1
+	end
+	if count == 0 then
+		return nil, "The download contained no methods."
+	end
+	methods:set(containers)
+	return count, nil
 end
 
 println("Loading methods...")
-local methodsUrl = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/methods.rbxm"
-local methodsResponse = getAsync(methodsUrl)
-if methodsResponse then
-	local responseBuffer = buffer.fromstring(methodsResponse)
-	local _methods = deserializeInstancesAsync(responseBuffer)
-	table.clear(methods)
-	for _, value in _methods do
-		methods[value.Name] = value
-	end
-	println(`Loaded {#_methods} method(s).`)
-	if methodState and not methods[methodState.value] then
-		local firstMethod = next(methods)
-		if firstMethod then
-			methodState:set(firstMethod)
-		end
-	end
+local loadedCount = loadMethods()
+if loadedCount then
+	println(`Loaded {loadedCount} method(s).`)
 else
 	warnln("Critical Error: Methods failed to load.")
 end
 
-println("Loading Iris...")
-local irisModule: ModuleScript? = packages.Iris
-if not irisModule then
-	local irisUrl = "https://github.com/Adi0nt/Sensation-Utilities-Plugin/raw/refs/heads/main/Iris.rbxm"
-	local irisResponse = getAsync(irisUrl)
-	if irisResponse then
-		local responseBuffer = buffer.fromstring(irisResponse)
-		local _iris = deserializeInstancesAsync(responseBuffer)
-		irisModule = _iris[1] :: ModuleScript?
+-- Module presets ---------------------------------------------------------------------------------------------------
+
+local presets = Presets.new()
+
+--- (Re)downloads presets.rbxm into the preset store. Yields. Returns the preset count, or `nil, reason`.
+local function loadPresets(): (number?, string?)
+	local body = Http.get(`{RAW_FRESH}presets.rbxm?t={os.time()}`, Log)
+	if body == nil then
+		return nil, "The download failed. Check your connection."
 	end
-	if not irisModule then
-		local fallbackUrl = "https://github.com/SirMallard/Iris/releases/download/v2.5.1/Iris.rbxm"
-		local fallbackResponse = getAsync(fallbackUrl)
-		if fallbackResponse then
-			local responseBuffer = buffer.fromstring(fallbackResponse)
-			local _iris = deserializeInstancesAsync(responseBuffer)
-			irisModule = _iris[1] :: ModuleScript?
-		end
+
+	local found = Presets.parse(deserializeInstancesAsync(buffer.fromstring(body)))
+	local count = 0
+	for _ in found do
+		count += 1
 	end
+	if count == 0 then
+		return nil, "The download contained no presets."
+	end
+	presets:set(found)
+	return count, nil
 end
 
-assert(irisModule, "Critical Error: Iris failed to load.")
-println("Loaded Iris.")
-local irisLib = require(irisModule)
-
-rawLib = require(packages.RawLib)
-maid = require(packages.Maid)
-
-maid = maid.new()
-instance_newindex = rawLib.instance_newindex
-
-if (irisLib :: any).Internal then
-	local internal = (irisLib :: any).Internal
-	if internal._shutdown then
-		internal._shutdown = false
-		internal._started = false
-	end
-	if internal._connectedFunctions then
-		table.clear(internal._connectedFunctions)
-	end
+println("Loading presets...")
+local loadedPresets = loadPresets()
+if loadedPresets then
+	println(`Loaded {loadedPresets} preset(s).`)
+else
+	warnln("Presets failed to load. Module presets are unavailable until you press Reload.")
 end
 
-Iris = irisLib.Init(coreGui)
+-- Widget -----------------------------------------------------------------------------------------------------------
 
-if (Iris :: any).Internal then
-	local internal = (Iris :: any).Internal
-	if internal._rootInstance == nil or internal._rootInstance.Parent == nil then
-		internal._generateRootInstance()
-		Iris.ForceRefresh()
-	end
-	if internal._connectedFunctions then
-		table.clear(internal._connectedFunctions)
-	end
+local widgetInfo = DockWidgetPluginGuiInfo.new(
+	Enum.InitialDockState.Right, -- first-time placement; Studio remembers where the user docks it afterwards
+	false, -- not enabled until the toolbar button is used
+	false, -- keep the user's previous enabled state
+	400, -- floating width
+	680, -- floating height
+	320, -- minimum width
+	400 -- minimum height
+)
 
-	-- Self-healing guard against corrupted VDOM/stackIndex
-	local originalGenNewWidget = internal._GenNewWidget
-	if originalGenNewWidget and not internal._patchedGenNewWidget then
-		internal._patchedGenNewWidget = true
-		internal._GenNewWidget = function(widgetType, arguments, states, ID)
-			local parentId = internal._IDStack[internal._stackIndex]
-			local parentWidget = internal._VDOM[parentId]
-			if parentWidget == nil then
-				internal._stackIndex = 1
-				internal._IDStack[1] = "R"
-				if internal._VDOM["R"] == nil then
-					internal._VDOM["R"] = internal._rootWidget
-				end
-				if internal._rootWidget and internal._rootWidget.ZOffset == nil then
-					internal._rootWidget.ZOffset = 0
-				end
-			end
-			return originalGenNewWidget(widgetType, arguments, states, ID)
-		end
+--- CreateDockWidgetPluginGui is deprecated in favour of the yielding CreateDockWidgetPluginGuiAsync.
+local function createWidget(): DockWidgetPluginGui
+	local pluginAny: any = plugin
+	local hasAsync, asyncMethod = pcall(function()
+		return pluginAny.CreateDockWidgetPluginGuiAsync
+	end)
+	if hasAsync and asyncMethod ~= nil then
+		return pluginAny:CreateDockWidgetPluginGuiAsync(WIDGET_ID, widgetInfo)
 	end
+	return pluginAny:CreateDockWidgetPluginGui(WIDGET_ID, widgetInfo)
 end
 
-local mutedColor = Color3.fromRGB(140, 148, 162)
-;(Iris :: any).TextDisabled = function(args: { string })
-	local text = args[1] or ""
-	Iris.Text({ text, false, mutedColor })
+local widget = createWidget()
+widget.Name = WIDGET_ID
+widget.Title = "Sensation Utilities"
+widget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+if unloaded then
+	return
 end
 
-Iris.UpdateGlobalConfig({
-	RichText = true,
+-- UI ---------------------------------------------------------------------------------------------------------------
 
-	-- Typography & Text
-	TextFont = Font.fromEnum(Enum.Font.GothamMedium),
-	TextSize = 14,
-	TextColor = Color3.fromRGB(240, 243, 248),
-	TextDisabledColor = mutedColor,
-
-	-- Window & Title Bar
-	TitleBgColor = Color3.fromRGB(20, 23, 30),
-	TitleBgActiveColor = Color3.fromRGB(26, 31, 42),
-	TitleBgCollapsedColor = Color3.fromRGB(16, 18, 24),
-	WindowBgColor = Color3.fromRGB(18, 21, 28),
-	WindowBgTransparency = 0.0,
-
-	-- Frames, Inputs & Cards
-	FrameBgColor = Color3.fromRGB(26, 31, 42),
-	FrameBgHoveredColor = Color3.fromRGB(34, 42, 58),
-	FrameBgActiveColor = Color3.fromRGB(42, 54, 76),
-
-	-- Buttons
-	ButtonColor = Color3.fromRGB(34, 42, 58),
-	ButtonTransparency = 0.0,
-	ButtonHoveredColor = Color3.fromRGB(46, 58, 80),
-	ButtonHoveredTransparency = 0.0,
-	ButtonActiveColor = Color3.fromRGB(56, 115, 205),
-	ButtonActiveTransparency = 0.0,
-
-	-- Collapsing Headers
-	HeaderColor = Color3.fromRGB(26, 30, 40),
-	HeaderTransparency = 0.0,
-	HeaderHoveredColor = Color3.fromRGB(34, 40, 54),
-	HeaderHoveredTransparency = 0.0,
-	HeaderActiveColor = Color3.fromRGB(42, 50, 68),
-	HeaderActiveTransparency = 0.0,
-
-	-- Tabs
-	TabColor = Color3.fromRGB(22, 25, 34),
-	TabTransparency = 0.0,
-	TabHoveredColor = Color3.fromRGB(32, 38, 52),
-	TabHoveredTransparency = 0.0,
-	TabActiveColor = Color3.fromRGB(40, 50, 70),
-	TabActiveTransparency = 0.0,
-
-	-- Borders & Outlines
-	BorderColor = Color3.fromRGB(48, 56, 74),
-	BorderTransparency = 0.4,
-	BorderActiveColor = Color3.fromRGB(65, 85, 120),
-	BorderActiveTransparency = 0.3,
-
-	-- Separators
-	SeparatorColor = Color3.fromRGB(40, 48, 64),
-	SeparatorTransparency = 0.4,
-
-	-- Corner Rounding & Border Sizes
-	FrameRounding = 5,
-	GrabRounding = 4,
-	WindowRounding = 6,
-	PopupRounding = 5,
-
-	FrameBorderSize = 1,
-	WindowBorderSize = 1,
-	PopupBorderSize = 1,
-
-	-- Spacing & Padding
-	ItemSpacing = Vector2.new(8, 7),
-	ItemInnerSpacing = Vector2.new(6, 4),
-	FramePadding = Vector2.new(8, 5),
-	WindowPadding = Vector2.new(12, 10),
+local operations = Operations.new({
+	plugin = plugin,
+	selection = selection,
+	history = History.new(changeHistoryService, Log),
+	log = Log,
+	methods = methods,
+	presets = presets,
+	contentProvider = game:GetService("ContentProvider"),
+	newIndex = rawLib.instance_newindex,
 })
 
-local function escapeRichText(str: string): string
-	return (string.gsub(string.gsub(string.gsub(str, "&", "&amp;"), "<", "&lt;"), ">", "&gt;"))
+local function mountApp(commit: string): any
+	return App.mount({
+		widget = widget,
+		operations = operations,
+		methods = methods,
+		presets = presets,
+		log = Log,
+		commit = commit,
+		reloadMethods = function()
+			local count, reason = loadMethods()
+			if count then
+				Log.info(`Loaded {count} method(s).`)
+			end
+			return count, reason
+		end,
+		reloadPresets = function()
+			local count, reason = loadPresets()
+			if count then
+				Log.info(`Loaded {count} preset(s).`)
+			end
+			return count, reason
+		end,
+	})
 end
 
-local currentCommit = "c303a72"
+local app = mountApp("main")
 
-local function fetchLatestCommit()
-	local body = getAsync("https://github.com/Adi0nt/Sensation-Utilities-Plugin/commit/main.patch", 2)
-	if body then
-		local firstLine = string.split(body, "\n")[1]
-		local match = string.match(firstLine, "^From (%x%x%x%x%x%x%x)")
-		if match then
-			currentCommit = match
-		end
-	end
+-- The panel follows Studio's theme. Components read their colours when they are built, so a theme change refreshes
+-- the palette and rebuilds the interface (keeping the page you were on).
+local studioSettings: any = nil
+pcall(function()
+	studioSettings = (settings() :: any).Studio
+end)
+if studioSettings ~= nil then
+	track(studioSettings.ThemeChanged:Connect(function()
+		local page, commit = app.state.page:peek(), app.state.commit:peek()
+		app.unmount()
+		Theme.refresh()
+		app = mountApp(commit)
+		app.state.page:set(page)
+	end))
 end
 
-if task and task.spawn then
-	task.spawn(fetchLatestCommit)
-else
-	coroutine.wrap(fetchLatestCommit)()
-end
-
-local windowSize = Iris.State(Vector2.new(460, 440))
-local isWindowVisible = Iris.State(false)
-
-methodState = Iris.State("")
-getActiveMethod()
-local modeState = Iris.State("Insert")
-local presetState = Iris.State("Advanced Module")
-local assetIdState = Iris.State(1234567890)
-local assetVersionState = Iris.State(0)
-
-const minCapabilities = SecurityCapabilities.new()
-
-local disconnectIris = Iris:Connect(function()
-	if (Iris :: any).Internal then
-		local internal = (Iris :: any).Internal
-		if internal._stackIndex ~= 1 then
-			internal._stackIndex = 1
-			internal._IDStack[1] = "R"
-		end
-		if internal._pushedIds and #internal._pushedIds ~= 0 then
-			table.clear(internal._pushedIds)
-		end
-		if internal._VDOM and internal._VDOM["R"] == nil then
-			internal._VDOM["R"] = internal._rootWidget
-		end
-	end
-
-	if not isWindowVisible.value then
-		return
-	end
-
-	mode = modeState.value
-
-	local windowTitle = `Sensation Utilities <font color="#8c94a2">- {currentCommit}</font>`
-	Iris.Window({ windowTitle, false, false, false, false }, { size = windowSize, isOpened = isWindowVisible })
-	do
-		local currentSelection = selection:Get()
-		local selCount = #currentSelection
-		local selName = if selCount >= 1 then escapeRichText(currentSelection[1].Name) else ""
-		local selClass = if selCount >= 1 then currentSelection[1].ClassName else ""
-		local selectionText = if selCount == 0
-			then "Selection: None (select objects in Explorer)"
-			elseif selCount == 1 then `Selection: "{selName}" [{selClass}]`
-			else `Selection: {selCount} objects ("{selName}", ...)`
-		local selectionColor = if selCount == 0 then mutedColor else nil
-
-		Iris.Text({ selectionText, false, selectionColor })
-
-		Iris.Separator()
-
-		Iris.TabBar()
-		do
-			Iris.Tab({ "Module" })
-			do
-				Iris.PushId("ModuleTab")
-
-				Iris.CollapsingHeader({ "Bypass", true })
-				do
-					local activeMethod = getActiveMethod()
-					local methodCount = 0
-					for _ in methods do
-						methodCount += 1
-					end
-
-					if methodCount > 1 then
-						Iris.Combo({ "Method" }, { index = methodState })
-						do
-							for methodName in methods do
-								Iris.Selectable({ methodName, methodName }, { index = methodState })
-							end
-						end
-						Iris.End()
-					else
-						local methodText = if methodCount == 1 and activeMethod
-							then `Method: {activeMethod.Name}`
-							else "No methods loaded"
-						local methodColor = if methodCount == 1 and activeMethod then nil else mutedColor
-						Iris.Text({ methodText, false, methodColor })
-					end
-
-					Iris.Combo({ "Mode" }, { index = modeState })
-					do
-						Iris.Selectable({ "Insert", "Insert" }, { index = modeState })
-						Iris.Selectable({ "Append", "Append" }, { index = modeState })
-					end
-					Iris.End()
-
-					Iris.SameLine()
-					do
-						if Iris.Button({ "Bypass" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to bypass. Skipping...")
-							else
-								if modeState.value == "Insert" then
-									for _, value in selected do
-										if value:IsA("ModuleScript") then
-											insertAsync(value)
-										end
-									end
-								elseif modeState.value == "Append" then
-									for _, value in selected do
-										if value:IsA("ModuleScript") then
-											appendAsync(value)
-										end
-									end
-								end
-							end
-						end
-
-						if Iris.Button({ "Unbypass" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to unbypass. Skipping...")
-							else
-								for _, value in selected do
-									if value:IsA("ModuleScript") then
-										extractAsync(value)
-									end
-								end
-							end
-						end
-					end
-					Iris.End()
-				end
-				Iris.End()
-
-				Iris.CollapsingHeader({ "Sandbox", false })
-				do
-					Iris.Text({ "Toggle SecurityCapabilities and sandboxing flags", false, mutedColor })
-					Iris.SameLine()
-					do
-						if Iris.Button({ "Sandbox" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to sandbox. Skipping...")
-							else
-								for _, value: Instance in selected do
-									pcall(instance_newindex, value, "Capabilities", minCapabilities)
-									pcall(instance_newindex, value, "Sandboxed", true)
-									for _, object: Instance in value:GetDescendants() do
-										pcall(instance_newindex, object, "Capabilities", minCapabilities)
-										pcall(instance_newindex, object, "Sandboxed", true)
-									end
-								end
-								println(`Sandboxed {#selected} object(s).`)
-							end
-						end
-
-						if Iris.Button({ "Unsandbox" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to unsandbox. Skipping...")
-							else
-								for _, value: Instance in selected do
-									for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
-										pcall(instance_newindex, value, "Capabilities", value.Capabilities:Add(securityCapability))
-									end
-									pcall(instance_newindex, value, "Sandboxed", false)
-									for _, object: Instance in value:GetDescendants() do
-										for _, securityCapability in Enum.SecurityCapability:GetEnumItems() do
-											pcall(instance_newindex, object, "Capabilities", value.Capabilities:Add(securityCapability))
-										end
-										pcall(instance_newindex, object, "Sandboxed", false)
-									end
-								end
-								println(`Unsandboxed {#selected} object(s).`)
-							end
-						end
-					end
-					Iris.End()
-				end
-				Iris.End()
-
-				Iris.CollapsingHeader({ "Cleaners", false })
-				do
-					Iris.Text({ "Clear broken or private SoundId references on unloaded sounds", false, mutedColor })
-					if Iris.Button({ "Remove Private AssetIds" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to clean. Skipping...")
-						else
-							local cleaned = 0
-							for _, value: Instance in selected do
-								if value:IsA("Sound") then
-									if value.TimeLength == 0 and value.IsLoaded == false then
-										value.SoundId = ""
-										cleaned += 1
-									end
-								end
-								for _, object: Sound in value:QueryDescendants("Sound[TimeLength = 0][IsLoaded = false]") do
-									object.SoundId = ""
-									cleaned += 1
-								end
-							end
-							println(`Cleaned {cleaned} sound instance(s).`)
-						end
-					end
-				end
-				Iris.End()
-
-				Iris.CollapsingHeader({ "Presets", false })
-				do
-					Iris.Combo({ "Preset" }, { index = presetState })
-					do
-						Iris.Selectable({ "Advanced Module", "Advanced Module" }, { index = presetState })
-						Iris.Selectable({ "Basic Module", "Basic Module" }, { index = presetState })
-					end
-					Iris.End()
-
-					if Iris.Button({ "Insert Preset" }).clicked() then
-						local selected = selection:Get()
-						if #selected == 0 then
-							println("Nothing is selected to insert the preset into. Skipping...")
-						else
-							local source = if presetState.value == "Advanced Module"
-								then advancedModuleSource
-								elseif presetState.value == "Basic Module" then basicModuleSource
-								else "-- Invalid Preset"
-
-							for _, value: Instance in selected do
-								createAsync("ModuleScript", {
-									Parent = value,
-									Name = "MainModule",
-									Source = source,
-								})
-							end
-							println(`Inserted {presetState.value} into {#selected} object(s).`)
-						end
-					end
-				end
-				Iris.End()
-
-				Iris.PopId()
-			end
-			Iris.End()
-
-			Iris.Tab({ "Marketplace" })
-			do
-				Iris.PushId("MarketplaceTab")
-
-				Iris.CollapsingHeader({ "Insert Asset", true })
-				do
-					Iris.InputNum({ "Asset ID", 1, 0, nil, "%d" }, { number = assetIdState })
-					Iris.InputNum({ "Version", 1, 0, nil, "%d" }, { number = assetVersionState })
-
-					Iris.SameLine()
-					do
-						if Iris.Button({ "Insert Version" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to insert the asset into. Skipping...")
-							else
-								local id = math.floor(assetIdState.value)
-								local version = math.floor(assetVersionState.value)
-								local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}&version={version}`)
-								if success and objects then
-									for _, value: Instance in selected do
-										for _, object in objects do
-											object:Clone().Parent = value
-										end
-									end
-									println(`Inserted asset {id} (v{version}) into {#selected} object(s).`)
-								else
-									warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
-								end
-							end
-						end
-
-						if Iris.Button({ "Insert Latest" }).clicked() then
-							local selected = selection:Get()
-							if #selected == 0 then
-								println("Nothing is selected to insert the asset into. Skipping...")
-							else
-								local id = math.floor(assetIdState.value)
-								local success, objects = pcall(game.GetObjects, game, `https://assetdelivery.roblox.com/v1/asset/?id={id}`)
-								if success and objects then
-									for _, value: Instance in selected do
-										for _, object in objects do
-											object:Clone().Parent = value
-										end
-									end
-									println(`Inserted latest version of asset {id} into {#selected} object(s).`)
-								else
-									warnln(`Failed to fetch asset {id}: {tostring(objects)}`)
-								end
-							end
-						end
-					end
-					Iris.End()
-				end
-				Iris.End()
-
-				Iris.CollapsingHeader({ "Upload & Export", true })
-				do
-					Iris.Text({ "Publish or save selected models & assets", false, mutedColor })
-
-					local selected = selection:Get()
-					local targetName = if #selected >= 1 then escapeRichText(selected[1].Name) else ""
-					local targetClass = if #selected >= 1 then selected[1].ClassName else ""
-					local targetText = if #selected == 0
-						then "Target: No selection"
-						elseif #selected == 1 then `Target: "{targetName}" ({targetClass})`
-						else `Target: {#selected} objects ("{targetName}", ...)`
-					local targetColor = if #selected == 0 then mutedColor else nil
-
-					Iris.Text({ targetText, false, targetColor })
-
-					Iris.SameLine()
-					do
-						if Iris.Button({ "Upload to Roblox" }).clicked() then
-							local currentSelected = selection:Get()
-							if #currentSelected == 0 then
-								println("Nothing is selected to upload. Select an object in Explorer first.")
-							else
-								local success, err = pcall(function()
-									plugin:SaveSelectedToRoblox()
-								end)
-								if success then
-									println(`Opened Roblox upload prompt for "{currentSelected[1].Name}".`)
-								else
-									warnln(`Failed to open upload prompt: {tostring(err)}`)
-								end
-							end
-						end
-
-						if Iris.Button({ "Save to File (.rbxm)" }).clicked() then
-							local currentSelected = selection:Get()
-							if #currentSelected == 0 then
-								println("Nothing is selected to save. Select an object in Explorer first.")
-							else
-								local suggestedName = currentSelected[1].Name .. ".rbxm"
-								local success, err = pcall(function()
-									plugin:PromptSaveSelection(suggestedName)
-								end)
-								if success then
-									println(`Opened file save prompt for "{currentSelected[1].Name}".`)
-								else
-									warnln(`Failed to open save prompt: {tostring(err)}`)
-								end
-							end
-						end
-					end
-					Iris.End()
-				end
-				Iris.End()
-
-				Iris.PopId()
-			end
-			Iris.End()
-
-			Iris.Tab({ "Studio" })
-			do
-				Iris.PushId("StudioTab")
-
-				Iris.CollapsingHeader({ "Character Spawners", true })
-				do
-					Iris.Text({ "Spawn rigged StarterCharacter model into StarterPlayer", false, mutedColor })
-					Iris.SameLine()
-					do
-						if Iris.Button({ "Spawn R6" }).clicked() then
-							local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
-								or Instance.new("HumanoidDescription")
-							local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R6)
-							model:PivotTo(CFrame.new(workspace.InsertPoint))
-							model.Name = "StarterCharacter"
-							model.Parent = starterPlayer
-							println("Spawned R6 StarterCharacter.")
-						end
-
-						if Iris.Button({ "Spawn R15" }).clicked() then
-							local humanoidDescription: HumanoidDescription = players:GetHumanoidDescriptionFromUserIdAsync(4907137312)
-								or Instance.new("HumanoidDescription")
-							local model: Model = players:CreateHumanoidModelFromDescriptionAsync(humanoidDescription, Enum.HumanoidRigType.R15)
-							model:PivotTo(CFrame.new(workspace.InsertPoint))
-							model.Name = "StarterCharacter"
-							model.Parent = starterPlayer
-							println("Spawned R15 StarterCharacter.")
-						end
-					end
-					Iris.End()
-				end
-				Iris.End()
-
-				Iris.PopId()
-			end
-			Iris.End()
-		end
-		Iris.End()
-	end
-	Iris.End()
+table.insert(cleanups, function()
+	app.unmount()
+	-- Flux registers one frame connection per loaded copy that it cannot remove itself; park it so it does no work.
+	pcall(Flux.Clock.manual, true)
 end)
 
-maid:Add(disconnectIris)
+-- Toolbar button <-> widget ----------------------------------------------------------------------------------------
 
-maid:Add(button.Click:Connect(function()
-	isWindowVisible:set(not isWindowVisible.value)
+button:SetActive(widget.Enabled)
+track(button.Click:Connect(function()
+	widget.Enabled = not widget.Enabled
+end))
+track(widget:GetPropertyChangedSignal("Enabled"):Connect(function()
+	button:SetActive(widget.Enabled)
 end))
 
-plugin.Unloading:Connect(function()
-	println("Closing plugin...")
-	if (Iris :: any).Internal and (Iris :: any).Internal._connectedFunctions then
-		table.clear((Iris :: any).Internal._connectedFunctions)
+-- Version label ----------------------------------------------------------------------------------------------------
+
+task.spawn(function()
+	local body = Http.get(`https://github.com/{REPO}/commit/main.patch`, Log, 2)
+	if body == nil or unloaded then
+		return
 	end
-	maid:Destroy()
-	println("Closed plugin.")
+	local firstLine = string.split(body, "\n")[1]
+	local commit = string.match(firstLine, "^From (%x%x%x%x%x%x%x)")
+	if commit then
+		app.state.commit:set(commit)
+	end
 end)
 
 println("Loaded.")
