@@ -3,6 +3,7 @@
 *.md text eol=lf
 *.json text eol=lf
 *.txt text eol=lf
+*.svg text eol=lf
 # Binary packages are never touched.
 *.rbxm binary
 *.rbxmx binary

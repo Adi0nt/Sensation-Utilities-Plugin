@@ -35,36 +35,11 @@
 
 ## What it does
 
-<table>
-  <tr>
-    <td width="33%" valign="top">
-      <img src="docs/icons/modules.svg" alt="" width="32" height="32">
-      <h3>Modules</h3>
-      <ul>
-        <li><b>Bypass Tools</b>: pick a method, choose <b>Insert</b> or <b>Append</b>, then <b>Bypass</b> or <b>Unbypass</b></li>
-        <li><b>Sandbox Controls</b>: sandbox the selection and all of its descendants</li>
-        <li><b>Asset Cleaner</b>: scan for meshes, textures, sounds and other assets Studio cannot load, then clear them</li>
-        <li><b>Module Presets</b>: drop in a ready-made <code>MainModule</code>, from your own <code>presets.rbxm</code></li>
-      </ul>
-    </td>
-    <td width="33%" valign="top">
-      <img src="docs/icons/market.svg" alt="" width="32" height="32">
-      <h3>Marketplace</h3>
-      <ul>
-        <li><b>Asset Insertion</b>: by ID, with a Version switch for the <b>latest</b> version or a <b>specific version</b></li>
-        <li><b>Upload to Roblox</b>: Studio's native publish prompt for the selection</li>
-        <li><b>Save to File</b>: export the selection as an <code>.rbxm</code></li>
-      </ul>
-    </td>
-    <td width="33%" valign="top">
-      <img src="docs/icons/studio.svg" alt="" width="32" height="32">
-      <h3>Studio</h3>
-      <ul>
-        <li><b>StarterCharacter spawners</b>: one click for an <b>R6</b> or <b>R15</b> rig in <code>StarterPlayer</code></li>
-      </ul>
-    </td>
-  </tr>
-</table>
+| | Page | What you can do |
+| :---: | --- | --- |
+| <img src="docs/icons/modules.svg" alt="" width="22" height="22"> | **Modules** | Bypass or unbypass ModuleScripts with a method you pick, sandbox a selection and everything under it, scan for assets Studio cannot load and clear them, and drop in a ready-made `MainModule` from your own `presets.rbxm`. |
+| <img src="docs/icons/market.svg" alt="" width="22" height="22"> | **Marketplace** | Insert an asset by ID (the latest version or a specific one), upload the selection to Roblox, or save it as an `.rbxm`. |
+| <img src="docs/icons/studio.svg" alt="" width="22" height="22"> | **Studio** | Spawn an R6 or R15 StarterCharacter in `StarterPlayer` with one click. |
 
 <details>
 <summary><b>Details on each tool</b></summary>
